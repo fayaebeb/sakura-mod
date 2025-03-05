@@ -190,6 +190,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add the new file history endpoint to the existing routes
+  app.get("/api/files", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const userFiles = await storage.getFilesByUserId(req.user!.id);
+      res.json(userFiles);
+    } catch (error) {
+      console.error("Error retrieving file history:", error);
+      res.status(500).json({
+        message: "Failed to retrieve file history",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
   // ✅ **Start the HTTP Server**
   const httpServer = createServer(app);
   return httpServer;

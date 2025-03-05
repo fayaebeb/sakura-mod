@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Send, Check, Sparkles, Heart, Upload } from "lucide-react";
+import { Send, Check, Sparkles, Heart, Upload, FileText } from "lucide-react";
 import { Message } from "@shared/schema";
 import { nanoid } from "nanoid";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -11,6 +11,7 @@ import ChatMessage from "./chat-message";
 import { ScrollArea } from "./ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 const CHAT_SESSION_KEY_PREFIX = "chat_session_id_user_";
 const TUTORIAL_SHOWN_KEY_PREFIX = "tutorial_shown_user_";
@@ -24,7 +25,6 @@ const LoadingDots = () => {
     </div>
   );
 };
-
 
 const Tutorial = ({ onClose }: { onClose: () => void }) => {
   const [step, setStep] = useState(1);
@@ -86,6 +86,7 @@ export default function ChatInterface() {
   const [file, setFile] = useState<File | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [_, setLocation] = useLocation();
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -251,6 +252,8 @@ export default function ChatInterface() {
   return (
     <Card className="flex flex-col h-[calc(100vh-12rem)] relative">
       {showTutorial && <Tutorial onClose={handleCloseTutorial} />}
+
+      
 
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">

@@ -20,9 +20,6 @@ const db = client.db("https://7088a2fb-29ff-47de-b6e0-44a0f317168c-westus3.apps.
 
 interface ChunkMetadata {
   filename: string;
-  chunk_index?: number;
-  total_chunks?: number;
-  session_id?: string;
 }
 
 interface UploadedFile {
@@ -261,9 +258,6 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
 
     const metadata: ChunkMetadata[] = extractedTexts.map((_, index) => ({
       filename: file.originalname,
-      chunk_index: index,
-      total_chunks: totalPages,
-      session_id: sessionId,
     }));
 
     await storeInAstraDB(extractedTexts, metadata);
@@ -285,7 +279,7 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
   try {
     const documents = extractedTexts.map((text, index) => ({
       $vectorize: text,
-      metadata: metadata[index] || {}
+      metadata: metadata[index] || {}1111111111111111111111111111111111
     }));
 
     await db.collection("newfile").insertMany(documents);

@@ -18,7 +18,7 @@ export interface IStorage {
   createFile(userId: number, file: InsertFile): Promise<File>;
   getFile(id: number): Promise<File | undefined>;
   updateFileStatus(id: number, status: string): Promise<File>;
-  updateFileVectorizedContent(id: number, vectorizedContent: string): Promise<File>; // ✅ Added
+  getFilesByUserId(userId: number): Promise<File[]>; // Added this method
   sessionStore: session.Store;
 }
 
@@ -108,12 +108,6 @@ export class DatabaseStorage implements IStorage {
     return file;
   }
 
-  async getFileByFilename(filename: string): Promise<File | undefined> {
-      const [file] = await db.select().from(files).where(eq(files.filename, filename));
-      return file;
-  }
-
-
   async updateFileStatus(id: number, status: string): Promise<File> {
     const [updatedFile] = await db
       .update(files)
@@ -123,15 +117,14 @@ export class DatabaseStorage implements IStorage {
     return updatedFile;
   }
 
-  async updateFileVectorizedContent(id: number, vectorizedContent: string): Promise<File> {
-    const [updatedFile] = await db
-      .update(files)
-      .set({ vectorizedContent })
-      .where(eq(files.id, id))
-      .returning();
-    return updatedFile;
+  // Added method to get all files for a user
+  async getFilesByUserId(userId: number): Promise<File[]> {
+    return await db
+      .select()
+      .from(files)
+      .where(eq(files.userId, userId))
+      .orderBy(desc(files.createdAt));
   }
 }
-  
 
 export const storage = new DatabaseStorage();

@@ -32,7 +32,8 @@ var users = pgTable("users", {
 var sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  sessionId: text("session_id").notNull(),
+  sessionId: text("session_id").notNull().unique(),
+  // ✅ Ensure it's unique
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 var files = pgTable("files", {
@@ -45,7 +46,9 @@ var files = pgTable("files", {
   sessionId: text("session_id").notNull(),
   status: text("status").notNull().default("processing"),
   // processing, completed, error
-  createdAt: timestamp("created_at").defaultNow().notNull()
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  vectorizedContent: text("vectorized_content")
+  // ✅ Stores extracted text from OpenAI
 });
 var messages = pgTable("messages", {
   id: serial("id").primaryKey(),
@@ -53,7 +56,8 @@ var messages = pgTable("messages", {
   content: text("content").notNull(),
   isBot: boolean("is_bot").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-  sessionId: text("session_id").notNull().references(() => sessions.id),
+  sessionId: text("session_id").notNull().references(() => sessions.sessionId),
+  // ✅ Now references `sessions.sessionId`
   fileId: integer("file_id").references(() => files.id)
 });
 var insertUserSchema = createInsertSchema(users).pick({
@@ -76,7 +80,9 @@ var insertFileSchema = createInsertSchema(files).pick({
   contentType: true,
   size: true,
   sessionId: true,
-  status: true
+  status: true,
+  vectorizedContent: true
+  // ✅ Now supports storing extracted text
 });
 
 // server/db.ts
@@ -98,7 +104,6 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 var PostgresSessionStore = connectPg(session);
 var DatabaseStorage = class {
-  sessionStore;
   constructor() {
     this.sessionStore = new PostgresSessionStore({
       pool,
@@ -154,8 +159,16 @@ var DatabaseStorage = class {
     const [file] = await db.select().from(files).where(eq(files.id, id));
     return file;
   }
+  async getFileByFilename(filename) {
+    const [file] = await db.select().from(files).where(eq(files.filename, filename));
+    return file;
+  }
   async updateFileStatus(id, status) {
     const [updatedFile] = await db.update(files).set({ status }).where(eq(files.id, id)).returning();
+    return updatedFile;
+  }
+  async updateFileVectorizedContent(id, vectorizedContent) {
+    const [updatedFile] = await db.update(files).set({ vectorizedContent }).where(eq(files.id, id)).returning();
     return updatedFile;
   }
 };
@@ -244,164 +257,219 @@ import multer from "multer";
 
 // server/file-processor.ts
 import { DataAPIClient } from "@datastax/astra-db-ts";
+import { promises as fs } from "fs";
 import ws2 from "ws";
 import { neonConfig as neonConfig2 } from "@neondatabase/serverless";
-import pdfParse from "pdf-parse";
-import mammoth from "mammoth";
-import * as cheerio from "cheerio";
+import { OpenAI } from "openai";
+import * as path from "path";
+import * as tmp from "tmp";
+import { execSync } from "child_process";
 neonConfig2.webSocketConstructor = ws2;
+var openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 var client = new DataAPIClient("AstraCS:MyeblgtUuIezcsypxuORPKrR:028dbe3744f8075ea0fe9e509d41c27559d992465ebb360f67c492707fd4a076");
 var db2 = client.db("https://7088a2fb-29ff-47de-b6e0-44a0f317168c-westus3.apps.astra.datastax.com");
+async function executeCommand(command, errorMessage) {
+  try {
+    console.log(`\u{1F4DD} Executing command: ${command}`);
+    execSync(command, { stdio: "pipe" });
+  } catch (error) {
+    console.error(`\u274C ${errorMessage}:`, error);
+    throw new Error(errorMessage);
+  }
+}
+async function pdfToImages(pdfBuffer) {
+  console.log("\u{1F4C4} Converting PDF to images...");
+  const tempDir = tmp.dirSync({ unsafeCleanup: true });
+  const tempPdfPath = path.join(tempDir.name, "input.pdf");
+  try {
+    await fs.writeFile(tempPdfPath, pdfBuffer);
+    const outputPrefix = path.join(tempDir.name, "output");
+    await executeCommand(
+      `pdftoppm -png "${tempPdfPath}" "${outputPrefix}"`,
+      "Failed to convert PDF to images"
+    );
+    const files2 = await fs.readdir(tempDir.name);
+    const imagePaths = files2.filter((file) => file.startsWith("output") && file.endsWith(".png")).map((file) => path.join(tempDir.name, file)).sort();
+    if (imagePaths.length === 0) {
+      throw new Error("No images were generated from the PDF");
+    }
+    console.log(`\u2705 Converted PDF to ${imagePaths.length} images`);
+    return imagePaths;
+  } catch (error) {
+    console.error("\u274C Error in PDF to image conversion:", error);
+    throw error;
+  }
+}
+async function pptxToImages(pptxBuffer) {
+  console.log("\u{1F4CA} Converting PPTX to images...");
+  const tempDir = tmp.dirSync({ unsafeCleanup: true });
+  const tempPptxPath = path.join(tempDir.name, "presentation.pptx");
+  const pdfPath = path.join(tempDir.name, "presentation.pdf");
+  try {
+    await fs.writeFile(tempPptxPath, pptxBuffer);
+    try {
+      await executeCommand("java -version", "Java is not properly installed");
+    } catch (error) {
+      console.error("\u274C Java check failed:", error);
+      throw new Error("Java Runtime Environment is required but not available");
+    }
+    const libreOfficeCommand = `libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempPptxPath}"`;
+    try {
+      await executeCommand(libreOfficeCommand, "Failed to convert PPTX to PDF");
+    } catch (error) {
+      console.error("\u274C LibreOffice conversion failed:", error);
+      throw new Error("Failed to convert presentation to PDF. Please ensure the file is not corrupted.");
+    }
+    if (!await fs.stat(pdfPath).catch(() => false)) {
+      throw new Error("PDF conversion failed - no output file generated");
+    }
+    const pdfBuffer = await fs.readFile(pdfPath);
+    return await pdfToImages(pdfBuffer);
+  } catch (error) {
+    console.error("\u274C Error in PPTX processing:", error);
+    throw error;
+  } finally {
+    await fs.unlink(tempPptxPath).catch(() => {
+    });
+    await fs.unlink(pdfPath).catch(() => {
+    });
+  }
+}
+async function docxToImages(docxBuffer) {
+  console.log("\u{1F4DD} Converting DOCX to images...");
+  const tempDir = tmp.dirSync({ unsafeCleanup: true });
+  const tempDocxPath = path.join(tempDir.name, "document.docx");
+  const pdfPath = path.join(tempDir.name, "document.pdf");
+  try {
+    await fs.writeFile(tempDocxPath, docxBuffer);
+    try {
+      await executeCommand("java -version", "Java is not properly installed");
+    } catch (error) {
+      console.error("\u274C Java check failed:", error);
+      throw new Error("Java Runtime Environment is required but not available");
+    }
+    const libreOfficeCommand = `libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempDocxPath}"`;
+    try {
+      await executeCommand(libreOfficeCommand, "Failed to convert DOCX to PDF");
+    } catch (error) {
+      console.error("\u274C LibreOffice conversion failed:", error);
+      throw new Error("Failed to convert document to PDF. Please ensure the file is not corrupted.");
+    }
+    if (!await fs.stat(pdfPath).catch(() => false)) {
+      throw new Error("PDF conversion failed - no output file generated");
+    }
+    const pdfBuffer = await fs.readFile(pdfPath);
+    return await pdfToImages(pdfBuffer);
+  } catch (error) {
+    console.error("\u274C Error in DOCX processing:", error);
+    throw error;
+  } finally {
+    await fs.unlink(tempDocxPath).catch(() => {
+    });
+    await fs.unlink(pdfPath).catch(() => {
+    });
+  }
+}
+async function analyzeImage(imagePath) {
+  console.log(`\u{1F50D} Analyzing image: ${imagePath}`);
+  const imageBuffer = await fs.readFile(imagePath);
+  const base64Image = imageBuffer.toString("base64");
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extract key points from this document image. Summarize key points concisely while preserving the original meaning. Do not add interpretations, descriptions, or inferred context. Ensure the output is structured for efficient RAG-based vector storage without special formatting." },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/png;base64,${base64Image}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 1e3
+    });
+    const extractedText = response.choices[0]?.message?.content ?? "No response";
+    console.log(`\u2705 Extracted text: ${extractedText.substring(0, 100)}...`);
+    return extractedText;
+  } catch (error) {
+    console.error("\u274C Error analyzing image:", error);
+    return "Error processing image";
+  }
+}
+async function processFile(file, sessionId) {
+  console.log(`\u{1F4C2} Processing file: ${file.originalname} (${file.mimetype})`);
+  let imagePaths = [];
+  try {
+    switch (file.mimetype) {
+      case "application/pdf":
+        imagePaths = await pdfToImages(file.buffer);
+        break;
+      case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      case "application/vnd.ms-powerpoint":
+        imagePaths = await pptxToImages(file.buffer);
+        break;
+      case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        imagePaths = await docxToImages(file.buffer);
+        break;
+      default:
+        throw new Error(`Unsupported file type: ${file.mimetype}`);
+    }
+    const totalPages = imagePaths.length;
+    console.log(`\u{1F4C4} Processing ${totalPages} pages...`);
+    const extractedTexts = await Promise.all(
+      imagePaths.map(async (path4, index) => {
+        console.log(`Processing page ${index + 1}/${totalPages}`);
+        return analyzeImage(path4);
+      })
+    );
+    const metadata = extractedTexts.map((_, index) => ({
+      filename: file.originalname
+    }));
+    await storeInAstraDB(extractedTexts, metadata);
+    await Promise.all(imagePaths.map((path4) => fs.unlink(path4).catch(() => {
+    })));
+  } catch (error) {
+    console.error("\u274C Error processing file:", error);
+    throw error;
+  }
+}
+async function storeInAstraDB(extractedTexts, metadata) {
+  console.log("\u{1F4E6} Storing data in AstraDB...");
+  try {
+    const documents = extractedTexts.map((text2, index) => ({
+      $vectorize: text2,
+      metadata: metadata[index] || {}
+    }));
+    await db2.collection("newfile").insertMany(documents);
+    return extractedTexts;
+  } catch (error) {
+    console.error("\u274C AstraDB storage error:", error);
+    return [];
+  }
+}
 async function testAstraDBConnection() {
   try {
     console.log("Testing AstraDB connection...");
-    await db2.collection("files_data").findOne({});
+    await db2.collection("newfile").findOne({});
     console.log("\u2705 Successfully connected to AstraDB");
   } catch (error) {
     console.error("\u274C Error connecting to AstraDB:", error);
   }
 }
 testAstraDBConnection();
-async function chunkText(text2, maxChunkSize = 1e3, overlap = 200) {
-  if (!text2 || text2.trim().length === 0) {
-    console.warn("\u26A0\uFE0F No text provided for chunking.");
-    return [];
-  }
-  const words = text2.split(/\s+/);
-  const chunks = [];
-  let start = 0;
-  while (start < words.length) {
-    const end = Math.min(start + maxChunkSize, words.length);
-    chunks.push(words.slice(start, end).join(" "));
-    if (end >= words.length) break;
-    start += maxChunkSize - overlap;
-  }
-  console.log(`\u2705 Chunking completed: Created ${chunks.length} chunks`);
-  return chunks;
-}
-async function extractTextFromPDF(buffer) {
-  try {
-    if (!buffer || buffer.length === 0) {
-      throw new Error("Invalid PDF buffer: Buffer is empty.");
-    }
-    const data = await pdfParse(buffer);
-    if (!data.text) {
-      throw new Error("PDF parsing failed: No text extracted.");
-    }
-    return data.text.trim();
-  } catch (error) {
-    console.error("\u274C Error parsing PDF:", error);
-    throw new Error("Failed to extract text from PDF.");
-  }
-}
-async function extractTextFromDOCX(buffer) {
-  try {
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value.trim();
-  } catch (error) {
-    console.error("\u274C Error parsing DOCX:", error);
-    throw new Error("Failed to extract text from DOCX file.");
-  }
-}
-function extractTextFromHTML(buffer) {
-  try {
-    const html = buffer.toString("utf-8");
-    const $ = cheerio.load(html);
-    $("script, style").remove();
-    return $("body").text().replace(/\s+/g, " ").trim();
-  } catch (error) {
-    console.error("\u274C Error parsing HTML:", error);
-    throw new Error("Failed to extract text from HTML file.");
-  }
-}
-function extractTextFromCSV(buffer) {
-  try {
-    const csv = buffer.toString("utf-8");
-    const lines = csv.split(/\r?\n/).filter((line) => line.trim() !== "");
-    return lines.join("\n");
-  } catch (error) {
-    console.error("\u274C Error parsing CSV:", error);
-    throw new Error("Failed to extract text from CSV file.");
-  }
-}
-async function processFile(file, sessionId) {
-  console.log(`\u{1F4C2} Processing file: ${file.originalname}`);
-  let text2;
-  switch (file.mimetype) {
-    case "application/pdf":
-      text2 = await extractTextFromPDF(file.buffer);
-      break;
-    case "text/plain":
-      text2 = file.buffer.toString("utf-8").trim();
-      break;
-    case "application/json":
-      const jsonContent = JSON.parse(file.buffer.toString("utf-8"));
-      text2 = JSON.stringify(jsonContent, null, 2);
-      break;
-    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-      text2 = await extractTextFromDOCX(file.buffer);
-      break;
-    case "text/csv":
-    case "application/csv":
-      text2 = extractTextFromCSV(file.buffer);
-      break;
-    case "text/html":
-      text2 = extractTextFromHTML(file.buffer);
-      break;
-    default:
-      throw new Error(`Unsupported file type: ${file.mimetype}`);
-  }
-  const chunks = await chunkText(text2);
-  if (chunks.length === 0) {
-    throw new Error("No valid text chunks were generated.");
-  }
-  const metadata = chunks.map((_, index) => ({
-    filename: file.originalname,
-    chunk_index: index,
-    total_chunks: chunks.length,
-    session_id: sessionId
-  }));
-  console.log(`\u2705 File processed: ${chunks.length} chunks generated.`);
-  return { chunks, metadata };
-}
-async function storeInAstraDB(chunks, metadata) {
-  try {
-    console.log(`\u{1F4E6} Storing ${chunks.length} chunks in AstraDB...`);
-    const documents = chunks.map((chunk, index) => ({
-      content: chunk,
-      metadata: metadata[index]
-    }));
-    const batchSize = 10;
-    for (let i = 0; i < documents.length; i += batchSize) {
-      const batch = documents.slice(i, i + batchSize);
-      try {
-        await Promise.all(
-          batch.map(async (doc) => {
-            await db2.collection("files_data").insertOne({
-              _data: {
-                content: doc.content,
-                metadata: doc.metadata
-              }
-            });
-          })
-        );
-        console.log(`\u2705 Stored batch ${Math.floor(i / batchSize) + 1}`);
-      } catch (batchError) {
-        console.error(`\u274C Error storing batch ${Math.floor(i / batchSize) + 1}:`, batchError);
-      }
-    }
-  } catch (error) {
-    console.error("\u274C Error in storeInAstraDB function:", error);
-  }
-}
 
 // server/routes.ts
 var LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/82a4b448-96ff-401d-99f4-809e966af016";
 var upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024
-    // 5MB limit
+    fileSize: 20 * 1024 * 1024
+    // 20MB limit
   }
 });
 async function registerRoutes(app2) {
@@ -411,16 +479,16 @@ async function registerRoutes(app2) {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     const allowedMimeTypes = [
       "application/pdf",
-      "text/plain",
-      "application/json",
-      "text/csv",
-      "application/csv",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/html"
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      // PPTX
+      "application/vnd.ms-powerpoint",
+      // PPT
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      // DOCX
     ];
     if (!allowedMimeTypes.includes(req.file.mimetype)) {
       return res.status(400).json({
-        error: `Unsupported file type: ${req.file.mimetype}. Supported types: PDF, TXT, JSON, CSV, DOCX, HTML`
+        error: `Unsupported file type: ${req.file.mimetype}. Supported types: PDF, PPT, PPTX, DOCX`
       });
     }
     const userId = req.user.id;
@@ -428,22 +496,18 @@ async function registerRoutes(app2) {
     try {
       const fileRecord = await storage.createFile(userId, {
         filename: req.file.originalname,
-        // Use originalname from multer
         originalName: req.file.originalname,
-        // Add originalName field
+        // ✅ Added originalName
         contentType: req.file.mimetype,
         size: req.file.size,
-        // Add file size
         sessionId,
         status: "processing"
       });
-      processFile(req.file, sessionId).then(async ({ chunks, metadata }) => {
+      processFile(req.file, sessionId).then(async () => {
         try {
-          await storeInAstraDB(chunks, metadata);
           await storage.updateFileStatus(fileRecord.id, "completed");
           await storage.createMessage(userId, {
-            content: `File processed: ${req.file.originalname}
-Chunks created: ${chunks.length}`,
+            content: `File processed successfully: ${req.file.originalname}`,
             isBot: true,
             sessionId,
             fileId: fileRecord.id
@@ -452,7 +516,7 @@ Chunks created: ${chunks.length}`,
           console.error("Error storing in AstraDB:", storeError);
           await storage.updateFileStatus(fileRecord.id, "completed");
           await storage.createMessage(userId, {
-            content: `File processed but storage failed: ${req.file.originalname}. Some content may be unavailable.`,
+            content: `File processed but storage in AstraDB failed: ${req.file.originalname}`,
             isBot: true,
             sessionId,
             fileId: fileRecord.id
@@ -480,35 +544,24 @@ Chunks created: ${chunks.length}`,
   app2.post("/api/chat", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const persistentSessionId = req.user.username.split("@")[0];
-    const result = insertMessageSchema.safeParse(req.body);
-    if (!result.success) {
-      console.error("Invalid request body:", result.error);
-      return res.status(400).json({ error: "Invalid request data" });
-    }
-    const body = result.data;
     try {
       await storage.createMessage(req.user.id, {
-        ...body,
+        content: req.body.content,
         isBot: false,
         sessionId: persistentSessionId
       });
-      console.log(`Sending request to Langflow API: ${body.content}`);
+      const relevantChunks = await storeInAstraDB([req.body.content], []);
+      console.log(`\u{1F50D} Sending request to Langflow API: ${req.body.content}`);
       const response = await fetch(LANGFLOW_API, {
         method: "POST",
         headers: {
           "Authorization": "Bearer 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",
-          "Content-Type": "application/json",
-          "x-api-key": "sk-13QT6ba04gaVTNsrhPH5ib41keBRLQtBNPY2O4E_dVk"
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          input_value: body.content,
+          input_value: req.body.content + (relevantChunks.length > 0 ? "\nContext: " + relevantChunks.join("\n") : ""),
           output_type: "chat",
-          input_type: "chat",
-          tweaks: {
-            "TextInput-BinzV": {
-              "input_value": persistentSessionId
-            }
-          }
+          input_type: "chat"
         })
       });
       if (!response.ok) {
@@ -518,19 +571,7 @@ Chunks created: ${chunks.length}`,
       }
       const aiResponse = await response.json();
       console.log("Langflow API Response:", JSON.stringify(aiResponse, null, 2));
-      let aiOutputText = null;
-      if (aiResponse.outputs && Array.isArray(aiResponse.outputs)) {
-        const firstOutput = aiResponse.outputs[0];
-        if (firstOutput?.outputs?.[0]?.results?.message?.data?.text) {
-          aiOutputText = firstOutput.outputs[0].results.message.data.text;
-        } else if (firstOutput?.outputs?.[0]?.messages?.[0]?.message) {
-          aiOutputText = firstOutput.outputs[0].messages[0].message;
-        }
-      }
-      if (!aiOutputText) {
-        console.error("Unexpected AI Response Format:", JSON.stringify(aiResponse, null, 2));
-        throw new Error("Could not extract message from AI response");
-      }
+      const aiOutputText = aiResponse.outputs?.[0]?.outputs?.[0]?.results?.message?.data?.text || aiResponse.outputs?.[0]?.outputs?.[0]?.messages?.[0]?.message || "I couldn't process your request.";
       const botMessage = await storage.createMessage(req.user.id, {
         content: aiOutputText,
         isBot: true,
@@ -568,8 +609,8 @@ Chunks created: ${chunks.length}`,
 
 // server/vite.ts
 import express from "express";
-import fs from "fs";
-import path2, { dirname as dirname2 } from "path";
+import fs2 from "fs";
+import path3, { dirname as dirname2 } from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 
@@ -577,7 +618,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import themePlugin from "@replit/vite-plugin-shadcn-theme-json";
-import path, { dirname } from "path";
+import path2, { dirname } from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { fileURLToPath } from "url";
 var __filename = fileURLToPath(import.meta.url);
@@ -595,13 +636,13 @@ var vite_config_default = defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "client", "src"),
-      "@shared": path.resolve(__dirname, "shared")
+      "@": path2.resolve(__dirname, "client", "src"),
+      "@shared": path2.resolve(__dirname, "shared")
     }
   },
-  root: path.resolve(__dirname, "client"),
+  root: path2.resolve(__dirname, "client"),
   build: {
-    outDir: path.resolve(__dirname, "dist/public"),
+    outDir: path2.resolve(__dirname, "dist/public"),
     emptyOutDir: true
   }
 });
@@ -642,14 +683,12 @@ async function setupVite(app2, server) {
   app2.use(vite.middlewares);
   app2.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+    const clientTemplatePath = path3.resolve(__dirname2, "..", "client", "index.html");
     try {
-      const clientTemplate = path2.resolve(
-        __dirname2,
-        "..",
-        "client",
-        "index.html"
-      );
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      if (!fs2.existsSync(clientTemplatePath)) {
+        return res.status(500).send("Error: index.html not found. Make sure the client is built.");
+      }
+      let template = await fs2.promises.readFile(clientTemplatePath, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
@@ -657,21 +696,22 @@ async function setupVite(app2, server) {
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
+      console.error("\u274C Vite SSR Fix Stacktrace Error:", e);
       vite.ssrFixStacktrace(e);
       next(e);
     }
   });
 }
 function serveStatic(app2) {
-  const distPath = path2.resolve(__dirname2, "public");
-  if (!fs.existsSync(distPath)) {
+  const distPath = path3.resolve(__dirname2, "public");
+  if (!fs2.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
+      `\u274C Could not find the build directory: ${distPath}. Run 'npm run build' to generate it.`
     );
   }
   app2.use(express.static(distPath));
   app2.use("*", (_req, res) => {
-    res.sendFile(path2.resolve(distPath, "index.html"));
+    res.sendFile(path3.resolve(distPath, "index.html"));
   });
 }
 
@@ -681,7 +721,7 @@ app.use(express2.json());
 app.use(express2.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   const start = Date.now();
-  const path3 = req.path;
+  const path4 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -690,8 +730,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path3.startsWith("/api")) {
-      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
+    if (path4.startsWith("/api")) {
+      let logLine = `${req.method} ${path4} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
