@@ -49,10 +49,16 @@ export const messages = pgTable("messages", {
 });
 
 // ✅ **Schemas for Input Validation**
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
+// Add password validation to the insert schema
+export const insertUserSchema = createInsertSchema(users)
+  .pick({
+    username: true,
+    password: true
+  })
+  .extend({
+    password: z.string().min(6, "パスワードは6文字以上でなければなりません")
+  });
+
 
 export const insertSessionSchema = createInsertSchema(sessions).pick({
   userId: true,
