@@ -279,7 +279,7 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
   try {
     const documents = extractedTexts.map((text, index) => ({
       $vectorize: text,
-      metadata: metadata[index] || {}1111111111111111111111111111111111
+      metadata: metadata[index] || {},
     }));
 
     await db.collection("newfile").insertMany(documents);
