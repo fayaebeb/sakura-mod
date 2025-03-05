@@ -11,6 +11,7 @@ import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
 
+// ✅ Improved Logging Format
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -44,26 +45,29 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
+
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+    const clientTemplatePath = path.resolve(__dirname, "..", "client", "index.html");
 
     try {
-      const clientTemplate = path.resolve(
-        __dirname,
-        "..",
-        "client",
-        "index.html",
-      );
+      // ✅ Prevents errors if index.html does not exist
+      if (!fs.existsSync(clientTemplatePath)) {
+        return res.status(500).send("Error: index.html not found. Make sure the client is built.");
+      }
 
-      // always reload the index.html file from disk incase it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      let template = await fs.promises.readFile(clientTemplatePath, "utf-8");
+
+      // ✅ Cache-bust `main.tsx` to ensure updates load correctly
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
+
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
+      console.error("❌ Vite SSR Fix Stacktrace Error:", e);
       vite.ssrFixStacktrace(e as Error);
       next(e);
     }
@@ -73,15 +77,16 @@ export async function setupVite(app: Express, server: Server) {
 export function serveStatic(app: Express) {
   const distPath = path.resolve(__dirname, "public");
 
+  // ✅ Check if `public` directory exists before serving
   if (!fs.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `❌ Could not find the build directory: ${distPath}. Run 'npm run build' to generate it.`,
     );
   }
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
+  // ✅ Serve index.html as a fallback
   app.use("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });

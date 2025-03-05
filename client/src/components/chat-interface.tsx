@@ -12,7 +12,6 @@ import { ScrollArea } from "./ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
-
 const CHAT_SESSION_KEY_PREFIX = "chat_session_id_user_";
 const TUTORIAL_SHOWN_KEY_PREFIX = "tutorial_shown_user_";
 
@@ -25,7 +24,6 @@ const LoadingDots = () => {
     </div>
   );
 };
-
 
 
 const Tutorial = ({ onClose }: { onClose: () => void }) => {
@@ -201,7 +199,7 @@ export default function ChatInterface() {
     onError: () => {
       toast({
         title: "Error uploading file",
-        description: "Please try again with a supported file type (PDF, TXT, JSON, CSV, DOCX, HTML)",
+        description: "Please try again with a supported file type (PDF, PPT, PPTX, DOCX)",
         variant: "destructive",
       });
       setFile(null);
@@ -213,18 +211,16 @@ export default function ChatInterface() {
     if (!selectedFile) return;
 
     const allowedTypes = [
-      'application/pdf', 
-      'text/plain', 
-      'application/json',
-      'text/csv',
-      'application/csv',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/html'
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PPTX
+      'application/vnd.ms-powerpoint', // PPT
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // DOCX
     ];
+
     if (!allowedTypes.includes(selectedFile.type)) {
       toast({
         title: "Unsupported file type",
-        description: "Please upload a PDF, TXT, JSON, CSV, DOCX, or HTML file",
+        description: "Please upload a PDF, PPT, PPTX, or DOCX file",
         variant: "destructive",
       });
       return;
@@ -255,7 +251,7 @@ export default function ChatInterface() {
   return (
     <Card className="flex flex-col h-[calc(100vh-12rem)] relative">
       {showTutorial && <Tutorial onClose={handleCloseTutorial} />}
-      
+
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {messages.map((message) => (
@@ -278,7 +274,7 @@ export default function ChatInterface() {
           id="file-upload"
           className="hidden"
           onChange={handleFileChange}
-          accept=".pdf,.txt,.json,.csv,.docx,.html"
+          accept=".pdf,.ppt,.pptx,.docx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         />
         <Button
           type="button"

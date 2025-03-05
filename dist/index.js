@@ -13,6 +13,8 @@ import { createServer } from "http";
 // shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  files: () => files,
+  insertFileSchema: () => insertFileSchema,
   insertMessageSchema: () => insertMessageSchema,
   insertSessionSchema: () => insertSessionSchema,
   insertUserSchema: () => insertUserSchema,
@@ -33,13 +35,26 @@ var sessions = pgTable("sessions", {
   sessionId: text("session_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
+var files = pgTable("files", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  filename: text("filename").notNull(),
+  originalName: text("original_name").notNull(),
+  contentType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  sessionId: text("session_id").notNull(),
+  status: text("status").notNull().default("processing"),
+  // processing, completed, error
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
 var messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   content: text("content").notNull(),
   isBot: boolean("is_bot").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-  sessionId: text("session_id").notNull().references(() => sessions.id)
+  sessionId: text("session_id").notNull().references(() => sessions.id),
+  fileId: integer("file_id").references(() => files.id)
 });
 var insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -52,7 +67,16 @@ var insertSessionSchema = createInsertSchema(sessions).pick({
 var insertMessageSchema = createInsertSchema(messages).pick({
   content: true,
   isBot: true,
-  sessionId: true
+  sessionId: true,
+  fileId: true
+});
+var insertFileSchema = createInsertSchema(files).pick({
+  filename: true,
+  originalName: true,
+  contentType: true,
+  size: true,
+  sessionId: true,
+  status: true
 });
 
 // server/db.ts
@@ -118,6 +142,21 @@ var DatabaseStorage = class {
       sessionId
     }).returning();
     return session3;
+  }
+  async createFile(userId, file) {
+    const [newFile] = await db.insert(files).values({
+      userId,
+      ...file
+    }).returning();
+    return newFile;
+  }
+  async getFile(id) {
+    const [file] = await db.select().from(files).where(eq(files.id, id));
+    return file;
+  }
+  async updateFileStatus(id, status) {
+    const [updatedFile] = await db.update(files).set({ status }).where(eq(files.id, id)).returning();
+    return updatedFile;
   }
 };
 var storage = new DatabaseStorage();
@@ -201,9 +240,243 @@ function setupAuth(app2) {
 }
 
 // server/routes.ts
+import multer from "multer";
+
+// server/file-processor.ts
+import { DataAPIClient } from "@datastax/astra-db-ts";
+import ws2 from "ws";
+import { neonConfig as neonConfig2 } from "@neondatabase/serverless";
+import pdfParse from "pdf-parse";
+import mammoth from "mammoth";
+import * as cheerio from "cheerio";
+neonConfig2.webSocketConstructor = ws2;
+var client = new DataAPIClient("AstraCS:MyeblgtUuIezcsypxuORPKrR:028dbe3744f8075ea0fe9e509d41c27559d992465ebb360f67c492707fd4a076");
+var db2 = client.db("https://7088a2fb-29ff-47de-b6e0-44a0f317168c-westus3.apps.astra.datastax.com");
+async function testAstraDBConnection() {
+  try {
+    console.log("Testing AstraDB connection...");
+    await db2.collection("files_data").findOne({});
+    console.log("\u2705 Successfully connected to AstraDB");
+  } catch (error) {
+    console.error("\u274C Error connecting to AstraDB:", error);
+  }
+}
+testAstraDBConnection();
+async function chunkText(text2, maxChunkSize = 1e3, overlap = 200) {
+  if (!text2 || text2.trim().length === 0) {
+    console.warn("\u26A0\uFE0F No text provided for chunking.");
+    return [];
+  }
+  const words = text2.split(/\s+/);
+  const chunks = [];
+  let start = 0;
+  while (start < words.length) {
+    const end = Math.min(start + maxChunkSize, words.length);
+    chunks.push(words.slice(start, end).join(" "));
+    if (end >= words.length) break;
+    start += maxChunkSize - overlap;
+  }
+  console.log(`\u2705 Chunking completed: Created ${chunks.length} chunks`);
+  return chunks;
+}
+async function extractTextFromPDF(buffer) {
+  try {
+    if (!buffer || buffer.length === 0) {
+      throw new Error("Invalid PDF buffer: Buffer is empty.");
+    }
+    const data = await pdfParse(buffer);
+    if (!data.text) {
+      throw new Error("PDF parsing failed: No text extracted.");
+    }
+    return data.text.trim();
+  } catch (error) {
+    console.error("\u274C Error parsing PDF:", error);
+    throw new Error("Failed to extract text from PDF.");
+  }
+}
+async function extractTextFromDOCX(buffer) {
+  try {
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value.trim();
+  } catch (error) {
+    console.error("\u274C Error parsing DOCX:", error);
+    throw new Error("Failed to extract text from DOCX file.");
+  }
+}
+function extractTextFromHTML(buffer) {
+  try {
+    const html = buffer.toString("utf-8");
+    const $ = cheerio.load(html);
+    $("script, style").remove();
+    return $("body").text().replace(/\s+/g, " ").trim();
+  } catch (error) {
+    console.error("\u274C Error parsing HTML:", error);
+    throw new Error("Failed to extract text from HTML file.");
+  }
+}
+function extractTextFromCSV(buffer) {
+  try {
+    const csv = buffer.toString("utf-8");
+    const lines = csv.split(/\r?\n/).filter((line) => line.trim() !== "");
+    return lines.join("\n");
+  } catch (error) {
+    console.error("\u274C Error parsing CSV:", error);
+    throw new Error("Failed to extract text from CSV file.");
+  }
+}
+async function processFile(file, sessionId) {
+  console.log(`\u{1F4C2} Processing file: ${file.originalname}`);
+  let text2;
+  switch (file.mimetype) {
+    case "application/pdf":
+      text2 = await extractTextFromPDF(file.buffer);
+      break;
+    case "text/plain":
+      text2 = file.buffer.toString("utf-8").trim();
+      break;
+    case "application/json":
+      const jsonContent = JSON.parse(file.buffer.toString("utf-8"));
+      text2 = JSON.stringify(jsonContent, null, 2);
+      break;
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      text2 = await extractTextFromDOCX(file.buffer);
+      break;
+    case "text/csv":
+    case "application/csv":
+      text2 = extractTextFromCSV(file.buffer);
+      break;
+    case "text/html":
+      text2 = extractTextFromHTML(file.buffer);
+      break;
+    default:
+      throw new Error(`Unsupported file type: ${file.mimetype}`);
+  }
+  const chunks = await chunkText(text2);
+  if (chunks.length === 0) {
+    throw new Error("No valid text chunks were generated.");
+  }
+  const metadata = chunks.map((_, index) => ({
+    filename: file.originalname,
+    chunk_index: index,
+    total_chunks: chunks.length,
+    session_id: sessionId
+  }));
+  console.log(`\u2705 File processed: ${chunks.length} chunks generated.`);
+  return { chunks, metadata };
+}
+async function storeInAstraDB(chunks, metadata) {
+  try {
+    console.log(`\u{1F4E6} Storing ${chunks.length} chunks in AstraDB...`);
+    const documents = chunks.map((chunk, index) => ({
+      content: chunk,
+      metadata: metadata[index]
+    }));
+    const batchSize = 10;
+    for (let i = 0; i < documents.length; i += batchSize) {
+      const batch = documents.slice(i, i + batchSize);
+      try {
+        await Promise.all(
+          batch.map(async (doc) => {
+            await db2.collection("files_data").insertOne({
+              _data: {
+                content: doc.content,
+                metadata: doc.metadata
+              }
+            });
+          })
+        );
+        console.log(`\u2705 Stored batch ${Math.floor(i / batchSize) + 1}`);
+      } catch (batchError) {
+        console.error(`\u274C Error storing batch ${Math.floor(i / batchSize) + 1}:`, batchError);
+      }
+    }
+  } catch (error) {
+    console.error("\u274C Error in storeInAstraDB function:", error);
+  }
+}
+
+// server/routes.ts
 var LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/82a4b448-96ff-401d-99f4-809e966af016";
+var upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024
+    // 5MB limit
+  }
+});
 async function registerRoutes(app2) {
   setupAuth(app2);
+  app2.post("/api/upload", upload.single("file"), async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const allowedMimeTypes = [
+      "application/pdf",
+      "text/plain",
+      "application/json",
+      "text/csv",
+      "application/csv",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/html"
+    ];
+    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({
+        error: `Unsupported file type: ${req.file.mimetype}. Supported types: PDF, TXT, JSON, CSV, DOCX, HTML`
+      });
+    }
+    const userId = req.user.id;
+    const { sessionId } = req.body;
+    try {
+      const fileRecord = await storage.createFile(userId, {
+        filename: req.file.originalname,
+        // Use originalname from multer
+        originalName: req.file.originalname,
+        // Add originalName field
+        contentType: req.file.mimetype,
+        size: req.file.size,
+        // Add file size
+        sessionId,
+        status: "processing"
+      });
+      processFile(req.file, sessionId).then(async ({ chunks, metadata }) => {
+        try {
+          await storeInAstraDB(chunks, metadata);
+          await storage.updateFileStatus(fileRecord.id, "completed");
+          await storage.createMessage(userId, {
+            content: `File processed: ${req.file.originalname}
+Chunks created: ${chunks.length}`,
+            isBot: true,
+            sessionId,
+            fileId: fileRecord.id
+          });
+        } catch (storeError) {
+          console.error("Error storing in AstraDB:", storeError);
+          await storage.updateFileStatus(fileRecord.id, "completed");
+          await storage.createMessage(userId, {
+            content: `File processed but storage failed: ${req.file.originalname}. Some content may be unavailable.`,
+            isBot: true,
+            sessionId,
+            fileId: fileRecord.id
+          });
+        }
+      }).catch(async (error) => {
+        console.error("Error processing file:", error);
+        await storage.updateFileStatus(fileRecord.id, "error");
+        await storage.createMessage(userId, {
+          content: `Error processing file ${req.file.originalname}: ${error.message || "Unknown error"}`,
+          isBot: true,
+          sessionId,
+          fileId: fileRecord.id
+        });
+      });
+      res.json(fileRecord);
+    } catch (error) {
+      console.error("Error handling file upload:", error);
+      res.status(500).json({
+        message: "Failed to process file upload",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
   app2.post("/api/chat", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const persistentSessionId = req.user.username.split("@")[0];
@@ -223,9 +496,9 @@ async function registerRoutes(app2) {
       const response = await fetch(LANGFLOW_API, {
         method: "POST",
         headers: {
-          "Authorization": "Bearer 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",
+          "Authorization": "Bearer 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",
           "Content-Type": "application/json",
-          "x-api-key": "sk-ge6Kg14NQxI4YQMQt7In5DRMLo_VB2C2brUAQPyE3p8"
+          "x-api-key": "sk-13QT6ba04gaVTNsrhPH5ib41keBRLQtBNPY2O4E_dVk"
         },
         body: JSON.stringify({
           input_value: body.content,

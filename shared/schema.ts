@@ -2,21 +2,24 @@ import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// ✅ **Users Table**
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
 });
 
+// ✅ **Sessions Table**
 export const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .notNull()
     .references(() => users.id),
-  sessionId: text("session_id").notNull(),
+  sessionId: text("session_id").notNull().unique(), // ✅ Ensure it's unique
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ✅ **Files Table (Now Stores Extracted Text)**
 export const files = pgTable("files", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
@@ -27,10 +30,12 @@ export const files = pgTable("files", {
   contentType: text("mime_type").notNull(),
   size: integer("size").notNull(),
   sessionId: text("session_id").notNull(),
-  status: text("status").notNull().default('processing'), // processing, completed, error
+  status: text("status").notNull().default("processing"), // processing, completed, error
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  vectorizedContent: text("vectorized_content"), // ✅ Stores extracted text from OpenAI
 });
 
+// ✅ **Messages Table**
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
@@ -39,10 +44,11 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   isBot: boolean("is_bot").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-  sessionId: text("session_id").notNull().references(() => sessions.id),
+  sessionId: text("session_id").notNull().references(() => sessions.sessionId), // ✅ Now references `sessions.sessionId`
   fileId: integer("file_id").references(() => files.id),
 });
 
+// ✅ **Schemas for Input Validation**
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -67,8 +73,10 @@ export const insertFileSchema = createInsertSchema(files).pick({
   size: true,
   sessionId: true,
   status: true,
+  vectorizedContent: true, // ✅ Now supports storing extracted text
 });
 
+// ✅ **Type Definitions**
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
