@@ -1,13 +1,19 @@
-# Use an official Node.js image with Debian (supports apt-get)
+# Use an official Node.js image with Debian-based system
 FROM node:20-bullseye
 
-# Install system dependencies (LibreOffice, Java, poppler-utils)
+# Install system dependencies (LibreOffice, Java, Poppler)
 RUN apt-get update && apt-get install -y \
     libreoffice \
-    default-jre \
+    libreoffice-writer \
+    libreoffice-impress \
+    libreoffice-common \
     poppler-utils \
+    default-jre \
     curl && \
     rm -rf /var/lib/apt/lists/*
+
+# Verify LibreOffice is installed
+RUN libreoffice --version
 
 # Set working directory
 WORKDIR /app
@@ -22,5 +28,5 @@ COPY . .
 # Expose the port (adjust if needed)
 EXPOSE 3000
 
-# Start the server
+# Start the application
 CMD ["npm", "start"]

@@ -105,7 +105,7 @@ async function pptxToImages(pptxBuffer: Buffer): Promise<string[]> {
     await fs.writeFile(tempPptxPath, pptxBuffer);
 
     // Convert PPTX to PDF using LibreOffice (soffice)
-    const libreOfficeCommand = `/usr/bin/libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempPptxPath}"`;
+    const libreOfficeCommand = `libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempPptxPath}"`;
     await executeCommand(libreOfficeCommand, "Failed to convert PPTX to PDF");
 
     // Verify PDF was created
@@ -152,7 +152,7 @@ async function docxToImages(docxBuffer: Buffer): Promise<string[]> {
     }
 
     // Convert DOCX to PDF using LibreOffice with enhanced error handling
-    const libreOfficeCommand = `/usr/bin/libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempDocxPath}"`;
+    const libreOfficeCommand = `libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempDocxPath}"`;
     try {
       await executeCommand(libreOfficeCommand, "Failed to convert DOCX to PDF");
     } catch (error) {
