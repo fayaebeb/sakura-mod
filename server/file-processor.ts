@@ -8,8 +8,9 @@ import * as tmp from "tmp";
 import { execSync } from "child_process";
 import { storage } from "./storage";
 import * as chardet from "chardet";
-import { SentenceTokenizer } from "natural";
+import natural from "natural";
 
+const { SentenceTokenizer } = natural;
 
 
 // Configure WebSocket for Neon
