@@ -112,14 +112,9 @@ async function pptxToImages(pptxBuffer: Buffer): Promise<string[]> {
       throw new Error("Java Runtime Environment is required but not available");
     }
 
-    // Convert PPTX to PDF using LibreOffice with enhanced error handling
-    const libreOfficeCommand = `libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempPptxPath}"`;
-    try {
-      await executeCommand(libreOfficeCommand, "Failed to convert PPTX to PDF");
-    } catch (error) {
-      console.error("❌ LibreOffice conversion failed:", error);
-      throw new Error("Failed to convert presentation to PDF. Please ensure the file is not corrupted.");
-    }
+    // Convert PPTX to PDF using LibreOffice (soffice)
+    const libreOfficeCommand = `soffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempPptxPath}"`;
+    await executeCommand(libreOfficeCommand, "Failed to convert PPTX to PDF");
 
     // Verify PDF was created
     if (!await fs.stat(pdfPath).catch(() => false)) {

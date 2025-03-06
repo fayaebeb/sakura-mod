@@ -9,7 +9,7 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "postinstall": "patch-package"
+    "postinstall": "apt-get update && apt-get install -y libreoffice && patch-package"
   },
   "dependencies": {
     "@astrajs/collections": "^0.3.4",
