@@ -104,14 +104,6 @@ async function pptxToImages(pptxBuffer: Buffer): Promise<string[]> {
     // Save PPTX temporarily
     await fs.writeFile(tempPptxPath, pptxBuffer);
 
-    // Check if Java is available
-    try {
-      await executeCommand("java -version", "Java is not properly installed");
-    } catch (error) {
-      console.error("❌ Java check failed:", error);
-      throw new Error("Java Runtime Environment is required but not available");
-    }
-
     // Convert PPTX to PDF using LibreOffice (soffice)
     const libreOfficeCommand = `soffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempPptxPath}"`;
     await executeCommand(libreOfficeCommand, "Failed to convert PPTX to PDF");
@@ -134,6 +126,7 @@ async function pptxToImages(pptxBuffer: Buffer): Promise<string[]> {
     await fs.unlink(pdfPath).catch(() => {});
   }
 }
+
 
 /**
  * Convert DOCX to images with enhanced error handling
