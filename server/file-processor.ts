@@ -56,7 +56,7 @@ async function pdfToImages(pdfBuffer: Buffer): Promise<string[]> {
   console.log("📄 Converting PDF to images...");
 
   // Create temporary directory for the conversion process
-  const tempDir = tmp.dirSync({ unsafeCleanup: true });
+  const tempDir = tmp.dirSync({ dir: "/tmp", unsafeCleanup: true });
   const tempPdfPath = path.join(tempDir.name, "input.pdf");
 
   try {
@@ -96,7 +96,7 @@ async function pptxToImages(pptxBuffer: Buffer): Promise<string[]> {
   console.log("📊 Converting PPTX to images...");
 
   // Create temporary directory
-  const tempDir = tmp.dirSync({ unsafeCleanup: true });
+  const tempDir = tmp.dirSync({ dir: "/tmp", unsafeCleanup: true });
   const tempPptxPath = path.join(tempDir.name, "presentation.pptx");
   const pdfPath = path.join(tempDir.name, "presentation.pdf");
 
@@ -105,7 +105,7 @@ async function pptxToImages(pptxBuffer: Buffer): Promise<string[]> {
     await fs.writeFile(tempPptxPath, pptxBuffer);
 
     // Convert PPTX to PDF using LibreOffice (soffice)
-    const libreOfficeCommand = `soffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempPptxPath}"`;
+    const libreOfficeCommand = `/usr/bin/libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempPptxPath}"`;
     await executeCommand(libreOfficeCommand, "Failed to convert PPTX to PDF");
 
     // Verify PDF was created
@@ -135,7 +135,7 @@ async function docxToImages(docxBuffer: Buffer): Promise<string[]> {
   console.log("📝 Converting DOCX to images...");
 
   // Create temporary directory
-  const tempDir = tmp.dirSync({ unsafeCleanup: true });
+  const tempDir = tmp.dirSync({ dir: "/tmp", unsafeCleanup: true });
   const tempDocxPath = path.join(tempDir.name, "document.docx");
   const pdfPath = path.join(tempDir.name, "document.pdf");
 
@@ -152,7 +152,7 @@ async function docxToImages(docxBuffer: Buffer): Promise<string[]> {
     }
 
     // Convert DOCX to PDF using LibreOffice with enhanced error handling
-    const libreOfficeCommand = `libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempDocxPath}"`;
+    const libreOfficeCommand = `/usr/bin/libreoffice --headless --convert-to pdf --outdir "${tempDir.name}" "${tempDocxPath}"`;
     try {
       await executeCommand(libreOfficeCommand, "Failed to convert DOCX to PDF");
     } catch (error) {
