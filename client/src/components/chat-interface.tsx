@@ -200,7 +200,7 @@ export default function ChatInterface() {
     onError: () => {
       toast({
         title: "Error uploading file",
-        description: "Please try again with a supported file type (PDF, PPT, PPTX, DOCX)",
+        description: "Please try again with a supported file type (PDF, PPT, PPTX, DOCX, TXT)",
         variant: "destructive",
       });
       setFile(null);
@@ -215,13 +215,15 @@ export default function ChatInterface() {
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PPTX
       'application/vnd.ms-powerpoint', // PPT
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // DOCX
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+      "text/plain",
+      ".txt"
     ];
 
     if (!allowedTypes.includes(selectedFile.type)) {
       toast({
         title: "Unsupported file type",
-        description: "Please upload a PDF, PPT, PPTX, or DOCX file",
+        description: "Please upload a PDF, PPT, PPTX DOCX or TXT file",
         variant: "destructive",
       });
       return;
@@ -253,7 +255,6 @@ export default function ChatInterface() {
     <Card className="flex flex-col h-[calc(100vh-12rem)] relative">
       {showTutorial && <Tutorial onClose={handleCloseTutorial} />}
 
-      
 
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
@@ -277,7 +278,7 @@ export default function ChatInterface() {
           id="file-upload"
           className="hidden"
           onChange={handleFileChange}
-          accept=".pdf,.ppt,.pptx,.docx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,.ppt,.pptx,.docx,.txt,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
         />
         <Button
           type="button"

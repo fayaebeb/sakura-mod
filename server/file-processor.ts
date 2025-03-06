@@ -7,6 +7,10 @@ import * as path from "path";
 import * as tmp from "tmp";
 import { execSync } from "child_process";
 import { storage } from "./storage";
+import * as chardet from "chardet";
+import { SentenceTokenizer } from "natural";
+
+
 
 // Configure WebSocket for Neon
 neonConfig.webSocketConstructor = ws;
@@ -27,6 +31,9 @@ interface UploadedFile {
   originalname: string;
   mimetype: string;
 }
+
+// Sentence tokenizer for splitting text files into chunks
+const tokenizer = new SentenceTokenizer([]);
 
 /**
  * Execute a shell command with error handling
@@ -223,58 +230,152 @@ async function analyzeImage(imagePath: string): Promise<string> {
 }
 
 /**
- * Process files (PDF/PPTX/DOCX → Images → GPT-4V → AstraDB)
+ * Process text file into chunks for vector storage
  */
-export async function processFile(file: UploadedFile, sessionId: string): Promise<void> {
-  console.log(`📂 Processing file: ${file.originalname} (${file.mimetype})`);
-
-  let imagePaths: string[] = [];
+async function processTextFile(textBuffer: Buffer): Promise<string[]> {
+  console.log("📝 Processing text file...");
 
   try {
-    switch (file.mimetype) {
-      case "application/pdf":
-        imagePaths = await pdfToImages(file.buffer);
-        break;
-      case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-      case "application/vnd.ms-powerpoint":
-        imagePaths = await pptxToImages(file.buffer);
-        break;
-      case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        imagePaths = await docxToImages(file.buffer);
-        break;
-      default:
-        throw new Error(`Unsupported file type: ${file.mimetype}`);
+    const detectedEncoding = chardet.detect(textBuffer) || "utf-8";
+    
+    // Convert encoding to a format compatible with Node.js
+    const encodingMap: Record<string, BufferEncoding> = {
+      "UTF-8": "utf8",
+      "ISO-8859-1": "latin1",
+      "ASCII": "ascii",
+      "UTF-16LE": "utf16le"
+    };
+    
+    const encoding = encodingMap[detectedEncoding.toUpperCase()] || "utf8";
+
+    // Convert buffer to string
+    const text = textBuffer.toString(encoding);
+
+    // Split text into 1000-character chunks (sentence-aware)
+    const CHUNK_SIZE = 1000;
+    const sentences = tokenizer.tokenize(text);
+    const chunks: string[] = [];
+    let currentChunk = "";
+
+    for (const sentence of sentences) {
+      if ((currentChunk + sentence).length <= CHUNK_SIZE) {
+        currentChunk += sentence + " ";
+      } else {
+        chunks.push(currentChunk.trim());
+        currentChunk = sentence + " ";
+      }
     }
 
-    const totalPages = imagePaths.length;
-    console.log(`📄 Processing ${totalPages} pages...`);
+    if (currentChunk) {
+      chunks.push(currentChunk.trim());
+    }
 
-    const extractedTexts = await Promise.all(
-      imagePaths.map(async (path, index) => {
-        console.log(`Processing page ${index + 1}/${totalPages}`);
-        return analyzeImage(path);
-      })
-    );
-
-    const metadata: ChunkMetadata[] = extractedTexts.map((_, index) => ({
-      filename: file.originalname,
-    }));
-
-    await storeInAstraDB(extractedTexts, metadata);
-
-    // Clean up temporary image files
-    await Promise.all(imagePaths.map(path => fs.unlink(path).catch(() => {})));
-
+    console.log(`✅ Split text into ${chunks.length} chunks`);
+    return chunks;
   } catch (error) {
-    console.error("❌ Error processing file:", error);
+    console.error("❌ Error processing text file:", error);
     throw error;
   }
 }
 
 /**
+ * Process files (PDF/PPTX/DOCX → Images → GPT-4V → AstraDB)
+ * Also supports text files (TXT → Chunks → AstraDB)
+ */
+export async function processFile(file: UploadedFile, sessionId: string): Promise<void> {
+  console.log(`📂 Processing file: ${file.originalname} (${file.mimetype})`);
+
+  let extractedTexts: string[] = [];
+  const tempFiles: string[] = []; // Track temporary files for cleanup
+
+  try {
+    switch (file.mimetype) {
+      case "application/pdf":
+        console.log("📄 PDF file detected. Converting to images...");
+        const pdfImages = await pdfToImages(file.buffer);
+        tempFiles.push(...pdfImages); // Track images for cleanup
+
+        extractedTexts = await Promise.all(
+          pdfImages.map(async (imagePath, index) => {
+            console.log(`🔍 Analyzing PDF image ${index + 1}/${pdfImages.length}`);
+            return analyzeImage(imagePath);
+          })
+        );
+        break;
+
+      case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      case "application/vnd.ms-powerpoint":
+        console.log("📊 PPTX file detected. Converting to images...");
+        const pptxImages = await pptxToImages(file.buffer);
+        tempFiles.push(...pptxImages); // Track images for cleanup
+
+        extractedTexts = await Promise.all(
+          pptxImages.map(async (imagePath, index) => {
+            console.log(`🔍 Analyzing PPTX image ${index + 1}/${pptxImages.length}`);
+            return analyzeImage(imagePath);
+          })
+        );
+        break;
+
+      case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        console.log("📝 DOCX file detected. Converting to images...");
+        const docxImages = await docxToImages(file.buffer);
+        tempFiles.push(...docxImages); // Track images for cleanup
+
+        extractedTexts = await Promise.all(
+          docxImages.map(async (imagePath, index) => {
+            console.log(`🔍 Analyzing DOCX image ${index + 1}/${docxImages.length}`);
+            return analyzeImage(imagePath);
+          })
+        );
+        break;
+
+      case "text/plain":
+        console.log("📝 Plain text file detected. Splitting into chunks...");
+        extractedTexts = await processTextFile(file.buffer);
+        break;
+
+      default:
+        console.warn(`⚠️ Unsupported file type encountered: ${file.mimetype}`);
+        throw new Error(`Unsupported file type: ${file.mimetype}`);
+    }
+
+    if (extractedTexts.length === 0) {
+      throw new Error("No text extracted from the file.");
+    }
+
+    console.log(`✅ Extracted ${extractedTexts.length} chunks from ${file.originalname}`);
+
+    // Create metadata for each chunk
+    const metadata: ChunkMetadata[] = extractedTexts.map(() => ({
+      filename: file.originalname,
+    }));
+
+    // Store extracted data in AstraDB
+    await storeInAstraDB(extractedTexts, metadata);
+
+    console.log(`📦 Successfully stored ${extractedTexts.length} chunks in AstraDB.`);
+
+  } catch (error) {
+    console.error("❌ Error processing file:", error);
+    throw error;
+  } finally {
+    // ✅ Ensure all temporary files are deleted
+    if (tempFiles.length > 0) {
+      console.log("🧹 Cleaning up temporary files...");
+      await Promise.all(tempFiles.map(path => fs.unlink(path).catch(() => {})));
+      console.log("✅ Temporary files deleted.");
+    }
+  }
+}
+
+
+
+
+/**
  * Store extracted data in AstraDB
  */
-export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMetadata[]): Promise<string[]> {
+export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMetadata[]): Promise<void> {
   console.log("📦 Storing data in AstraDB...");
   try {
     const documents = extractedTexts.map((text, index) => ({
@@ -283,12 +384,13 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
     }));
 
     await db.collection("newfile").insertMany(documents);
-    return extractedTexts;
+    console.log("✅ Successfully stored text chunks in AstraDB.");
   } catch (error) {
     console.error("❌ AstraDB storage error:", error);
-    return [];
+    throw error;  // <---- Ensure errors propagate
   }
 }
+
 
 //Test AstraDB connection
 async function testAstraDBConnection() {

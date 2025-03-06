@@ -45,12 +45,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation", // PPTX
       "application/vnd.ms-powerpoint", // PPT
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" // DOCX
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX
+      "text/plain" // TXT files
     ];
 
     if (!allowedMimeTypes.includes(req.file.mimetype)) {
       return res.status(400).json({
-        error: `Unsupported file type: ${req.file.mimetype}. Supported types: PDF, PPT, PPTX, DOCX`,
+        error: `Unsupported file type: ${req.file.mimetype}. Supported types: PDF, PPT, PPTX, DOCX, TXT`,
       });
     }
 
