@@ -238,8 +238,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/files", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      const userFiles = await storage.getFilesByUserId(req.user!.id);
-      res.json(userFiles);
+      // Get all files instead of just the user's files
+      const allFiles = await storage.getAllFiles();
+      res.json(allFiles);
     } catch (error) {
       console.error("Error retrieving file history:", error);
       res.status(500).json({

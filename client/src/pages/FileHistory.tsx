@@ -13,6 +13,9 @@ interface FileRecord {
   size: number;
   status: string;
   createdAt: string;
+  user: {
+    username: string;
+  } | null;
 }
 
 export default function FileHistory() {
@@ -86,6 +89,8 @@ export default function FileHistory() {
                     <span>{formatFileSize(file.size)}</span>
                     <span className="mx-2">•</span>
                     <span>{format(new Date(file.createdAt), "PPp")}</span>
+                    <span className="mx-2">•</span>
+                    <span>Uploaded by: {file.user ? file.user.username.split('@')[0] : 'Unknown'}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

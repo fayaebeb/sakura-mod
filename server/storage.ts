@@ -18,7 +18,8 @@ export interface IStorage {
   createFile(userId: number, file: InsertFile): Promise<File>;
   getFile(id: number): Promise<File | undefined>;
   updateFileStatus(id: number, status: string): Promise<File>;
-  getFilesByUserId(userId: number): Promise<File[]>; // Added this method
+  getFilesByUserId(userId: number): Promise<File[]>;
+  getAllFiles(): Promise<(File & { user: { username: string } | null })[]>; // Add method to get all files
   sessionStore: session.Store;
 }
 
@@ -125,6 +126,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(files.userId, userId))
       .orderBy(desc(files.createdAt));
   }
+
+  // Method to get all files regardless of user with user info
+  async getAllFiles(): Promise<(File & { user: { username: string } | null })[]> {
+    const results = await db
+      .select({
+        id: files.id,
+        status: files.status,
+        userId: files.userId,
+        sessionId: files.sessionId,
+        createdAt: files.createdAt,
+        filename: files.filename,
+        originalName: files.originalName,
+        contentType: files.contentType,
+        size: files.size,
+        vectorizedContent: files.vectorizedContent,
+        user_username: users.username,  // Select username separately
+      })
+      .from(files)
+      .leftJoin(users, eq(files.userId, users.id))
+      .orderBy(desc(files.createdAt));
+
+    // Transform results to match the expected type
+    return results.map(row => ({
+      id: row.id,
+      status: row.status,
+      userId: row.userId,
+      sessionId: row.sessionId,
+      createdAt: row.createdAt,
+      filename: row.filename,
+      originalName: row.originalName,
+      contentType: row.contentType,
+      size: row.size,
+      vectorizedContent: row.vectorizedContent,
+      user: row.user_username ? { username: row.user_username } : null
+    }));
 }
+}
+
+
 
 export const storage = new DatabaseStorage();
