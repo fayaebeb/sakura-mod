@@ -28,14 +28,14 @@ RUN npm install
 COPY . .
 
 # ✅ Build the frontend (Vite)
-WORKDIR /app/client  # Switch to frontend directory
+WORKDIR /app/client  
 RUN npm install
-RUN npm run build  # Generates "client/dist/"
+RUN npm run build  
 
 # ✅ Build the backend (TypeScript)
-WORKDIR /app/server  # Switch to backend directory
+WORKDIR /app/server  
 RUN npm install
-RUN npm run build  # Generates "server/dist/"
+RUN npm run build  
 
 # ✅ Move built frontend to backend "public" (for serving via Express)
 RUN mkdir -p /app/server/public
@@ -45,5 +45,5 @@ RUN cp -r /app/client/dist/* /app/server/public/
 ENV PORT=8080
 EXPOSE 8080
 
-# ✅ Start the backend server (Express)
-CMD ["node", "server/dist/index.js"]
+# ✅ **Corrected CMD: Ensure correct path to backend entry point**
+CMD ["node", "/app/server/dist/index.js"]
