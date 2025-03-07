@@ -1,10 +1,10 @@
-# Use Node.js with Debian-based system
+# Use Node.js base image with Debian
 FROM node:20-bullseye
 
 # Set environment variables to prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies (LibreOffice, Java, Poppler-utils)
+# ✅ Install system dependencies (LibreOffice, Java, Poppler, etc.)
 RUN apt-get update && apt-get install -y \
     libreoffice \
     poppler-utils \
@@ -14,38 +14,25 @@ RUN apt-get update && apt-get install -y \
     ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
-# Verify LibreOffice is installed
+# ✅ Verify LibreOffice installation
 RUN libreoffice --version
 
-# Set working directory
+# ✅ Set working directory
 WORKDIR /app
 
-# Copy package.json and install dependencies
+# ✅ Copy package.json and package-lock.json, then install dependencies
 COPY package.json package-lock.json ./
 RUN npm install
 
-# Copy the rest of the application
+# ✅ Copy the rest of the application
 COPY . .
 
-# ✅ Build the frontend (Vite)
-WORKDIR /app/client  
-RUN npm install
-RUN npm run build  
+# ✅ Build everything (frontend + backend)
+RUN npm run build
 
-# ✅ Build the backend (TypeScript)
-WORKDIR /app  
-RUN npm run build  
-
-# ✅ Ensure `dist/index.js` Exists
-RUN ls -l /app/dist/
-
-# ✅ Move built frontend to backend "public"
-RUN mkdir -p /app/public
-RUN cp -r /app/client/dist/* /app/public/
-
-# Set the correct port for DigitalOcean
+# ✅ Expose port 8080 (same as Render)
 ENV PORT=8080
 EXPOSE 8080
 
-# ✅ **Correct CMD: Start from `/app/dist/index.js`**
-CMD ["node", "/app/dist/index.js"]
+# ✅ Start the app
+CMD ["npm", "run", "start"]
