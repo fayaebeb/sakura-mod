@@ -62,7 +62,7 @@ app.get("/health", (_req, res) => {
   }
 
   // ✅ Fix: Use process.env.PORT (Default: 8080 for DigitalOcean)
-  const PORT = process.env.PORT || 8080;
+  const PORT = 8080;
 
   server.listen(PORT, "0.0.0.0", () => {
     log(`🚀 Server is running on port ${PORT}`);
