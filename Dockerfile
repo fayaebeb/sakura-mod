@@ -27,12 +27,15 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
-# ✅ Add the TypeScript build step
-RUN npm run build  # This creates the dist/ folder
+# ✅ Build the frontend (React)
+RUN npm run build --workspace=frontend  # Adjust if your frontend is in a subfolder
+
+# ✅ Build the backend (TypeScript)
+RUN npm run build --workspace=backend  # Adjust if needed
 
 # Set the correct port for DigitalOcean
 ENV PORT=8080
 EXPOSE 8080
 
-# Start the application (now using the built dist/)
+# ✅ Start the backend server (Express)
 CMD ["node", "dist/index.js"]
