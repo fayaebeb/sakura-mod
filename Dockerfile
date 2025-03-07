@@ -28,14 +28,22 @@ RUN npm install
 COPY . .
 
 # ✅ Build the frontend (React)
-RUN npm run build --workspace=frontend  # Adjust if your frontend is in a subfolder
+WORKDIR /app/client  # Switch to frontend directory
+RUN npm install
+RUN npm run build  # Generates "client/dist/"
 
 # ✅ Build the backend (TypeScript)
-RUN npm run build --workspace=backend  # Adjust if needed
+WORKDIR /app/server  # Switch to backend directory
+RUN npm install
+RUN npm run build  # Generates "server/dist/"
+
+# ✅ Move built frontend to backend "public" (for serving via Express)
+RUN mkdir -p /app/server/public
+RUN cp -r /app/client/dist/* /app/server/public/
 
 # Set the correct port for DigitalOcean
 ENV PORT=8080
 EXPOSE 8080
 
 # ✅ Start the backend server (Express)
-CMD ["node", "dist/index.js"]
+CMD ["node", "server/dist/index.js"]
