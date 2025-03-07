@@ -27,7 +27,7 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
-# ✅ Build the frontend (React)
+# ✅ Build the frontend (Vite)
 WORKDIR /app/client  # Switch to frontend directory
 RUN npm install
 RUN npm run build  # Generates "client/dist/"
