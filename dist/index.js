@@ -745,19 +745,23 @@ app.use((req, res, next) => {
 });
 (async () => {
   const server = await registerRoutes(app);
+
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
     throw err;
   });
+
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
-  const PORT = 5e3;
+
+  // ✅ Use process.env.PORT for DigitalOcean compatibility
+  const PORT = process.env.PORT || 8080;
   server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
+    log(`🚀 Server is running on port ${PORT}`);
   });
 })();
