@@ -1,16 +1,18 @@
-# Use an official Node.js image with Debian-based system
+# Use Node.js with Debian-based system
 FROM node:20-bullseye
 
-# Install system dependencies (LibreOffice, Java, Poppler)
+# Set environment variables to prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies (LibreOffice, Java, Poppler-utils)
 RUN apt-get update && apt-get install -y \
     libreoffice \
-    libreoffice-writer \
-    libreoffice-impress \
-    libreoffice-common \
     poppler-utils \
     default-jre \
-    curl && \
-    rm -rf /var/lib/apt/lists/*
+    fonts-dejavu \
+    fonts-liberation \
+    ghostscript \
+    && rm -rf /var/lib/apt/lists/*
 
 # Verify LibreOffice is installed
 RUN libreoffice --version
@@ -25,8 +27,9 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
-# Expose the port (adjust if needed)
-EXPOSE 3000
+# Set the correct port for DigitalOcean
+ENV PORT=8080
+EXPOSE 8080
 
 # Start the application
 CMD ["npm", "start"]
