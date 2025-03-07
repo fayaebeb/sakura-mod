@@ -27,9 +27,12 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
+# ✅ Add the TypeScript build step
+RUN npm run build  # This creates the dist/ folder
+
 # Set the correct port for DigitalOcean
 ENV PORT=8080
 EXPOSE 8080
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application (now using the built dist/)
+CMD ["node", "dist/index.js"]
