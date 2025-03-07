@@ -33,17 +33,19 @@ RUN npm install
 RUN npm run build  
 
 # ✅ Build the backend (TypeScript)
-WORKDIR /app/server  
-RUN npm install
+WORKDIR /app  
 RUN npm run build  
 
-# ✅ Move built frontend to backend "public" (for serving via Express)
-RUN mkdir -p /app/server/public
-RUN cp -r /app/client/dist/* /app/server/public/
+# ✅ Ensure `dist/index.js` Exists
+RUN ls -l /app/dist/
+
+# ✅ Move built frontend to backend "public"
+RUN mkdir -p /app/public
+RUN cp -r /app/client/dist/* /app/public/
 
 # Set the correct port for DigitalOcean
 ENV PORT=8080
 EXPOSE 8080
 
-# ✅ **Corrected CMD: Ensure correct path to backend entry point**
-CMD ["node", "/app/server/dist/index.js"]
+# ✅ **Correct CMD: Start from `/app/dist/index.js`**
+CMD ["node", "/app/dist/index.js"]
