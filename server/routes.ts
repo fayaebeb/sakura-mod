@@ -213,18 +213,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ✅ **Retrieve Messages by Session**
   app.get("/api/messages/:sessionId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      // ✅ **Use Persistent Session ID**
-      const persistentSessionId = req.user!.username.split("@")[0];
+      // Use the persistent sessionId from user's email
+      const persistentSessionId = req.user!.username.split('@')[0];
       const messages = await storage.getMessagesByUserAndSession(
         req.user!.id,
         persistentSessionId
       );
-
       res.json(messages);
     } catch (error) {
       console.error("Error retrieving messages:", error);
