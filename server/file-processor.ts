@@ -372,7 +372,7 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
       metadata: metadata[index] || {},
     }));
 
-    await db.collection("newfile").insertMany(documents);
+    await db.collection("thetest").insertMany(documents);
     console.log("✅ Successfully stored text chunks in AstraDB.");
   } catch (error) {
     console.error("❌ AstraDB storage error:", error);
@@ -385,7 +385,7 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
 async function testAstraDBConnection() {
   try {
     console.log("Testing AstraDB connection...");
-    await db.collection("newfile").findOne({});
+    await db.collection("thetest").findOne({});
     console.log("✅ Successfully connected to AstraDB");
   } catch (error) {
     console.error("❌ Error connecting to AstraDB:", error);
@@ -402,7 +402,7 @@ export async function retrieveRelevantChunks(query: string, topK: number = 5): P
   console.log(`🔍 Searching AstraDB for relevant chunks: "${query}"`);
 
   try {
-    const results = await db.collection("newfile").find({
+    const results = await db.collection("thetest").find({
       $vector: {
         query: query,
         path: "content",

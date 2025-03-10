@@ -7,7 +7,7 @@ import { processFile, storeInAstraDB } from "./file-processor";
 import { insertMessageSchema } from "@shared/schema";
 
 // Langflow API configuration
-const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/82a4b448-96ff-401d-99f4-809e966af016";
+const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/68380903-dcb9-4e45-a1d9-767ad716afaf";
 
 // Helper function to format the bot's response
 function formatBotResponse(text: string): string {
@@ -145,9 +145,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await fetch(LANGFLOW_API, {
         method: "POST",
         headers: {
-          Authorization: "Bearer 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",
+          Authorization: "Bearer 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",
           "Content-Type": "application/json",
-          "x-api-key": "sk-ge6Kg14NQxI4YQMQt7In5DRMLo_VB2C2brUAQPyE3p8",
+          "x-api-key": "sk-6W5u11ouqRgUnXqgcdIAYERdU3pQVdgWHxrD8kPzoQo",
         },
         body: JSON.stringify({
           input_value: body.content,
