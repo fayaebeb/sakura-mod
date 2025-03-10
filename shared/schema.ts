@@ -15,7 +15,7 @@ export const sessions = pgTable("sessions", {
   userId: integer("user_id")
     .notNull()
     .references(() => users.id),
-  sessionId: text("session_id").notNull().unique(), // ✅ Ensure it's unique
+  sessionId: text("session_id").notNull(), // ✅ Ensure it's unique
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -44,7 +44,7 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   isBot: boolean("is_bot").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-  sessionId: text("session_id").notNull().references(() => sessions.sessionId), // ✅ Now references `sessions.sessionId`
+  sessionId: text("session_id").notNull().references(() => sessions.id), // ✅ Now references `sessions.sessionId`
   fileId: integer("file_id").references(() => files.id),
 });
 
