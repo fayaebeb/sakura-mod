@@ -163,12 +163,48 @@ export default function ChatInterface() {
       });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/messages", sessionId] });
+    onMutate: async (content: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/messages", sessionId] });
+  
+      const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages", sessionId]) || [];
+  
+      const optimisticUserMessage: Message = {
+        id: nanoid(),
+        content,
+        createdAt: new Date().toISOString(),
+        isBot: false,
+      };
+  
+      queryClient.setQueryData<Message[]>(["/api/messages", sessionId], [
+        ...previousMessages,
+        optimisticUserMessage,
+      ]);
+  
+      return { previousMessages };
+    },
+    onSuccess: (newBotMessage: Message) => {
+      queryClient.setQueryData<Message[]>(["/api/messages", sessionId], (old) => [
+        ...(old || []),
+        newBotMessage,
+      ]);
       toast({
         title: "メッセージ送信したよ！",
-        description: <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> メッセージ届いたよ！ありがとう♡</div>,
+        description: (
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-green-500" /> メッセージ届いたよ！ありがとう♡
+          </div>
+        ),
         duration: 2000,
+      });
+    },
+    onError: (_, __, context) => {
+      if (context?.previousMessages) {
+        queryClient.setQueryData(["/api/messages", sessionId], context.previousMessages);
+      }
+      toast({
+        title: "送信エラー",
+        description: "メッセージが送れなかったよ...もう一度試してみてね！",
+        variant: "destructive",
       });
     },
   });
