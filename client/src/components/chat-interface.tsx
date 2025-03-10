@@ -163,12 +163,48 @@ export default function ChatInterface() {
       });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/messages", sessionId] });
+    onMutate: async (content: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/messages", sessionId] });
+  
+      const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages", sessionId]) || [];
+  
+      const optimisticUserMessage: Message = {
+        id: nanoid(),
+        content,
+        createdAt: new Date().toISOString(),
+        isBot: false,
+      };
+  
+      queryClient.setQueryData<Message[]>(["/api/messages", sessionId], [
+        ...previousMessages,
+        optimisticUserMessage,
+      ]);
+  
+      return { previousMessages };
+    },
+    onSuccess: (newBotMessage: Message) => {
+      queryClient.setQueryData<Message[]>(["/api/messages", sessionId], (old) => [
+        ...(old || []),
+        newBotMessage,
+      ]);
       toast({
         title: "メッセージ送信したよ！",
-        description: <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> メッセージ届いたよ！ありがとう♡</div>,
+        description: (
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-green-500" /> メッセージ届いたよ！ありがとう♡
+          </div>
+        ),
         duration: 2000,
+      });
+    },
+    onError: (_, __, context) => {
+      if (context?.previousMessages) {
+        queryClient.setQueryData(["/api/messages", sessionId], context.previousMessages);
+      }
+      toast({
+        title: "送信エラー",
+        description: "メッセージが送れなかったよ...もう一度試してみてね！",
+        variant: "destructive",
       });
     },
   });
@@ -185,27 +221,28 @@ export default function ChatInterface() {
         credentials: 'include',
       });
 
-      if (!res.ok) throw new Error('Failed to upload file');
+      if (!res.ok) throw new Error('ファイルのアップロードに失敗しました');
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/messages", sessionId] });
       toast({
-        title: "File uploaded successfully!",
-        description: <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> Your file is being processed...</div>,
+        title: "ファイルのアップロードが完了しました！",
+        description: <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> ファイルを処理しています...</div>,
         duration: 3000,
       });
       setFile(null);
     },
     onError: () => {
       toast({
-        title: "Error uploading file",
-        description: "Please try again with a supported file type (PDF, PPT, PPTX, DOCX, TXT)",
+        title: "ファイルのアップロードに失敗しました",
+        description: "対応しているファイル形式（PDF、PPT、PPTX、DOCX、TXT）で再試行してください。",
         variant: "destructive",
       });
       setFile(null);
     },
   });
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -239,7 +276,7 @@ export default function ChatInterface() {
 
     const message = input;
     setInput("");
-    await sendMessage.mutateAsync(message);
+    sendMessage.mutate(message);
   };
 
   if (isLoadingMessages) {
@@ -265,8 +302,9 @@ export default function ChatInterface() {
             <div className="flex flex-col items-center gap-2 p-4">
               <LoadingDots />
               <p className="text-sm text-muted-foreground">
-                {uploadFile.isPending ? "Processing your file..." : "桜AIが一生懸命考えてるよ...！"}
-              </p>
+  {uploadFile.isPending ? "ファイルを処理中です..." : "桜AIが一生懸命考えているよ...！"}
+</p>
+
             </div>
           )}
         </div>

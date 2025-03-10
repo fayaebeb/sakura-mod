@@ -75,7 +75,7 @@ export default function HomePage() {
               className="flex items-center gap-2"
             >
               <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">File History</span> {/* Hide text on small screens */}
+              <span className="hidden sm:inline">ファイル履歴</span> {/* Hide text on small screens */}
             </Button>
 
             {/* Logout Button */}

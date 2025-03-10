@@ -1,28 +1,26 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, type IStorage } from "./storage";
 import { setupAuth } from "./auth";
 import multer from "multer";
-import { processFile, storeInAstraDB } from "./file-processor";
+import { processFile, storeInAstraDB, deleteFileFromAstraDB } from "./file-processor";
 import { insertMessageSchema } from "@shared/schema";
 
 // Langflow API configuration
-const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/68380903-dcb9-4e45-a1d9-767ad716afaf";
+const LANGFLOW_API = "https://fayaebeb-sakuralf.hf.space/api/v1/run/11717339-cef3-4786-b3d7-59602c779cb4";
 
 // Helper function to format the bot's response
 function formatBotResponse(text: string): string {
   return text
-    // Ensure proper spacing for Markdown formatting
-    .replace(/(###\s?)/g, "\n\n$1") // Add spacing before headings
-    .replace(/(。)(?![\n])/g, "。\n") // Line break after sentences
-    .replace(/(！|？)(?![\n])/g, "$1\n") // Line break after punctuation
-    .replace(/\|\s+\|/g, "|") // Remove extra spaces in table pipes
-    .replace(/\n\|/g, "\n") // Remove unnecessary leading pipes in new lines
-    .replace(/\|\n/g, "\n") // Remove unnecessary trailing pipes in new lines
-    .replace(/\n{3,}/g, "\n\n") // Clean up excessive newlines
+    .replace(/(###\s?)/g, "\n\n$1")
+    .replace(/(。)(?![\n])/g, "。\n")
+    .replace(/(！|？)(?![\n])/g, "$1\n")
+    .replace(/\|\s+\|/g, "|")
+    .replace(/\n\|/g, "\n")
+    .replace(/\|\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
-
 
 // Configure multer for memory storage (limit increased to 20MB)
 const upload = multer({
@@ -35,18 +33,17 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
-  // ✅ **File Upload Endpoint**
+  // File Upload Endpoint
   app.post("/api/upload", upload.single('file'), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    // ✅ **Validate File Type**
     const allowedMimeTypes = [
       "application/pdf",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation", // PPTX
-      "application/vnd.ms-powerpoint", // PPT
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX
-      "text/plain" // TXT files
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain"
     ];
 
     if (!allowedMimeTypes.includes(req.file.mimetype)) {
@@ -59,24 +56,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { sessionId } = req.body;
 
     try {
-      // ✅ **Create file record in database**
       const fileRecord = await storage.createFile(userId, {
         filename: req.file.originalname,
-        originalName: req.file.originalname,  // ✅ Added originalName
+        originalName: req.file.originalname,
         contentType: req.file.mimetype,
         size: req.file.size,
         sessionId,
         status: "processing",
       });
 
-
       processFile(req.file, sessionId)
         .then(async () => {
           try {
-            // ✅ **Update file status to completed**
             await storage.updateFileStatus(fileRecord.id, "completed");
-
-            // ✅ **Create a success message**
             await storage.createMessage(userId, {
               content: `File processed successfully: ${req.file!.originalname}`,
               isBot: true,
@@ -85,8 +77,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           } catch (storeError) {
             console.error("Error storing in AstraDB:", storeError);
-
-            // ✅ **Mark as completed even if vector storage fails**
             await storage.updateFileStatus(fileRecord.id, "completed");
             await storage.createMessage(userId, {
               content: `File processed but storage in AstraDB failed: ${req.file!.originalname}`,
@@ -98,8 +88,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .catch(async (error) => {
           console.error("Error processing file:", error);
-
-          // ✅ **Update status to error**
           await storage.updateFileStatus(fileRecord.id, "error");
           await storage.createMessage(userId, {
             content: `Error processing file ${req.file!.originalname}: ${error.message || "Unknown error"}`,
@@ -109,7 +97,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         });
 
-      // ✅ **Respond immediately**
       res.json(fileRecord);
     } catch (error) {
       console.error("Error handling file upload:", error);
@@ -120,7 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ✅ **Chat API Route**
+  // Chat API Route
   app.post("/api/chat", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
@@ -136,7 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       await storage.createMessage(req.user!.id, {
-        ...body,
+        content: body.content,
         isBot: false,
         sessionId: persistentSessionId,
       });
@@ -145,17 +132,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await fetch(LANGFLOW_API, {
         method: "POST",
         headers: {
-          Authorization: "Bearer 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",
-          "Content-Type": "application/json",
-          "x-api-key": "sk-6W5u11ouqRgUnXqgcdIAYERdU3pQVdgWHxrD8kPzoQo",
-        },
-        body: JSON.stringify({
-          input_value: body.content,
-          output_type: "chat",
-          input_type: "chat",
-          tweaks: {
-            "TextInput-0PsOz": {
-              input_value: persistentSessionId,
+              Authorization: "Bearer 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",
+                "Content-Type": "application/json",
+                "x-api-key": "sk-02Z80ad25BlPKPMxU47rVun7NuiOX5esqyjPZAsso2A",
+              },
+              body: JSON.stringify({
+                input_value: body.content,
+                output_type: "chat",
+                input_type: "chat",
+                tweaks: {
+                  "TextInput-K3VLO": {
+                    input_value: persistentSessionId,
             },
           },
         }),
@@ -164,16 +151,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Langflow API Error:", errorText);
-        throw new Error(
-          `Langflow API responded with status ${response.status}`,
-        );
+        throw new Error(`Langflow API responded with status ${response.status}`);
       }
 
       const aiResponse = await response.json();
-      console.log(
-        "Langflow API Response:",
-        JSON.stringify(aiResponse, null, 2),
-      );
+      console.log("Langflow API Response:", JSON.stringify(aiResponse, null, 2));
 
       let aiOutputText = null;
 
@@ -187,14 +169,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!aiOutputText) {
-        console.error(
-          "Unexpected AI Response Format:",
-          JSON.stringify(aiResponse, null, 2),
-        );
+        console.error("Unexpected AI Response Format:", JSON.stringify(aiResponse, null, 2));
         throw new Error("Could not extract message from AI response");
       }
 
-      // Format the bot's response before storing it
       const formattedResponse = formatBotResponse(aiOutputText);
 
       const botMessage = await storage.createMessage(req.user!.id, {
@@ -217,7 +195,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      // Use the persistent sessionId from user's email
       const persistentSessionId = req.user!.username.split('@')[0];
       const messages = await storage.getMessagesByUserAndSession(
         req.user!.id,
@@ -233,11 +210,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add the new file history endpoint to the existing routes
   app.get("/api/files", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
-      // Get all files instead of just the user's files
       const allFiles = await storage.getAllFiles();
       res.json(allFiles);
     } catch (error) {
@@ -249,7 +224,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ✅ **Start the HTTP Server**
+  // Add new DELETE endpoint for files
+  app.delete("/api/files/:fileId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const fileId = parseInt(req.params.fileId);
+    if (isNaN(fileId)) {
+      return res.status(400).json({ error: "Invalid file ID" });
+    }
+
+    try {
+      // Check if file exists and user has permission
+      const file = await storage.getFile(fileId);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      // Verify file ownership
+      if (file.userId !== req.user!.id) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+
+      // First delete the vector data from AstraDB
+      try {
+        await deleteFileFromAstraDB(file.filename);
+      } catch (astraError) {
+        console.error("Error deleting from AstraDB:", astraError);
+        // Continue with PostgreSQL deletion even if AstraDB deletion fails
+      }
+
+      // Then delete from PostgreSQL
+      const deletedFile = await storage.deleteFile(fileId);
+
+      res.json(deletedFile);
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      res.status(500).json({
+        message: "Failed to delete file",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
