@@ -41,7 +41,7 @@ export default function FileHistory() {
       const res = await fetch("/api/files", {
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to fetch file history");
+      if (!res.ok) throw new Error("ファイル履歴の取得に失敗しました");
       return res.json();
     },
   });
@@ -73,7 +73,6 @@ export default function FileHistory() {
     },
   });
 
-
   function getStatusIcon(status: string) {
     switch (status) {
       case "completed":
@@ -98,16 +97,15 @@ export default function FileHistory() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center gap-4 mb-6">
-      <Button
-  variant="ghost"
-  onClick={() => setLocation("/")}
-  className="flex items-center gap-2"
->
-  <ArrowLeft className="h-4 w-4" />
-  チャットに戻る
-</Button>
-<h1 className="text-2xl font-bold">ファイルアップロード履歴</h1>
-
+        <Button
+          variant="ghost"
+          onClick={() => setLocation("/")}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          チャットに戻る
+        </Button>
+        <h1 className="text-2xl font-bold">ファイルアップロード履歴</h1>
       </div>
 
       {isLoading ? (
@@ -116,32 +114,26 @@ export default function FileHistory() {
         </div>
       ) : files.length === 0 ? (
         <Card className="p-8 text-center text-muted-foreground">
-  まだファイルがアップロードされていません。
-</Card>
-
+          まだファイルがアップロードされていません。
+        </Card>
       ) : (
         <div className="grid gap-4">
-  {files.map((file) => (
-    <Card key={file.id} className="p-4">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center justify-center w-10 h-10">
-          {getStatusIcon(file.status)}
-        </div>
-        <div className="flex-1">
-          <h3 className="font-medium">{file.originalName}</h3>
-          <div className="text-sm text-muted-foreground">
-            <span>{formatFileSize(file.size)}</span>
-            <span className="mx-2">•</span>
-            <span>{format(new Date(file.createdAt), "PPp")}</span>
-            <span className="mx-2">•</span>
-            <span>アップロード者: {file.user ? file.user.username.split('@')[0] : '不明'}</span>
-          </div>
-        </div>
-      </div>
-    </Card>
-  ))}
-</div>
-
+          {files.map((file) => (
+            <Card key={file.id} className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center justify-center w-10 h-10">
+                  {getStatusIcon(file.status)}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-medium">{file.originalName}</h3>
+                  <div className="text-sm text-muted-foreground">
+                    <span>{formatFileSize(file.size)}</span>
+                    <span className="mx-2">•</span>
+                    <span>{format(new Date(file.createdAt), "PPp")}</span>
+                    <span className="mx-2">•</span>
+                    <span>アップロード者: {file.user ? file.user.username.split('@')[0] : '不明'}</span>
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm capitalize px-2 py-1 rounded-full bg-muted">
                     {file.status}
@@ -158,21 +150,19 @@ export default function FileHistory() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                      <AlertDialogTitle>ファイルの削除</AlertDialogTitle>
-<AlertDialogDescription>
-  このファイルを削除してもよろしいですか？この操作は元に戻せません。
-</AlertDialogDescription>
-
+                        <AlertDialogTitle>ファイルの削除</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          このファイルを削除してもよろしいですか？この操作は元に戻せません。
+                        </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
-<AlertDialogAction
-  onClick={() => deleteMutation.mutate(file.id)}
-  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
->
-  {deleteMutation.isPending ? "削除中..." : "削除"}
-</AlertDialogAction>
-
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteMutation.mutate(file.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {deleteMutation.isPending ? "削除中..." : "削除"}
+                        </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
