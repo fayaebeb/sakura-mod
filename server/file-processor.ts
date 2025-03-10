@@ -360,7 +360,6 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
 
 
 
-
 /**
  * Store extracted data in AstraDB
  */
@@ -372,7 +371,7 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
       metadata: metadata[index] || {},
     }));
 
-    await db.collection("thetest").insertMany(documents);
+    await db.collection("newfile").insertMany(documents);
     console.log("✅ Successfully stored text chunks in AstraDB.");
   } catch (error) {
     console.error("❌ AstraDB storage error:", error);
@@ -381,11 +380,27 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
 }
 
 
+/**
+ * Delete file data from AstraDB
+ */
+export async function deleteFileFromAstraDB(filename: string): Promise<void> {
+  console.log(`🗑️ Deleting file data from AstraDB: ${filename}`);
+  try {
+    await db.collection("newfile").deleteMany({
+      "metadata.filename": filename
+    });
+    console.log("✅ Successfully deleted file data from AstraDB");
+  } catch (error) {
+    console.error("❌ Error deleting from AstraDB:", error);
+    throw error;
+  }
+}
+
 //Test AstraDB connection
 async function testAstraDBConnection() {
   try {
     console.log("Testing AstraDB connection...");
-    await db.collection("thetest").findOne({});
+    await db.collection("newfile").findOne({});
     console.log("✅ Successfully connected to AstraDB");
   } catch (error) {
     console.error("❌ Error connecting to AstraDB:", error);
@@ -402,7 +417,7 @@ export async function retrieveRelevantChunks(query: string, topK: number = 5): P
   console.log(`🔍 Searching AstraDB for relevant chunks: "${query}"`);
 
   try {
-    const results = await db.collection("thetest").find({
+    const results = await db.collection("newfile").find({
       $vector: {
         query: query,
         path: "content",

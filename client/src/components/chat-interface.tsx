@@ -275,7 +275,7 @@ export default function ChatInterface() {
 
     const message = input;
     setInput("");
-    await sendMessage.mutateAsync(message);
+    sendMessage.mutate(message);
   };
 
   if (isLoadingMessages) {

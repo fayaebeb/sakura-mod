@@ -19,7 +19,8 @@ export interface IStorage {
   getFile(id: number): Promise<File | undefined>;
   updateFileStatus(id: number, status: string): Promise<File>;
   getFilesByUserId(userId: number): Promise<File[]>;
-  getAllFiles(): Promise<(File & { user: { username: string } | null })[]>; // Add method to get all files
+  getAllFiles(): Promise<(File & { user: { username: string } | null })[]>;
+  deleteFile(id: number): Promise<File>;
   sessionStore: session.Store;
 }
 
@@ -67,6 +68,7 @@ export class DatabaseStorage implements IStorage {
       .values({
         userId,
         ...message,
+        fileId: message.fileId ?? null,
       })
       .returning();
     return newMessage;
@@ -118,7 +120,6 @@ export class DatabaseStorage implements IStorage {
     return updatedFile;
   }
 
-  // Added method to get all files for a user
   async getFilesByUserId(userId: number): Promise<File[]> {
     return await db
       .select()
@@ -127,7 +128,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(files.createdAt));
   }
 
-  // Method to get all files regardless of user with user info
   async getAllFiles(): Promise<(File & { user: { username: string } | null })[]> {
     const results = await db
       .select({
@@ -141,13 +141,12 @@ export class DatabaseStorage implements IStorage {
         contentType: files.contentType,
         size: files.size,
         vectorizedContent: files.vectorizedContent,
-        user_username: users.username,  // Select username separately
+        user_username: users.username,
       })
       .from(files)
       .leftJoin(users, eq(files.userId, users.id))
       .orderBy(desc(files.createdAt));
 
-    // Transform results to match the expected type
     return results.map(row => ({
       id: row.id,
       status: row.status,
@@ -161,9 +160,22 @@ export class DatabaseStorage implements IStorage {
       vectorizedContent: row.vectorizedContent,
       user: row.user_username ? { username: row.user_username } : null
     }));
-}
-}
+  }
 
+  async deleteFile(id: number): Promise<File> {
+    // First delete all messages that reference this file
+    await db
+      .delete(messages)
+      .where(eq(messages.fileId, id));
 
+    // Then delete the file itself
+    const [deletedFile] = await db
+      .delete(files)
+      .where(eq(files.id, id))
+      .returning();
+
+    return deletedFile;
+  }
+}
 
 export const storage = new DatabaseStorage();
