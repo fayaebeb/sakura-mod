@@ -10,16 +10,9 @@ import { insertMessageSchema } from "@shared/schema";
 const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/8cc3616d-0e44-4bd5-9aa3-7ae57e2a2d45";
 
 // Helper function to format the bot's response
+// Updated, minimal formatting function
 function formatBotResponse(text: string): string {
-  return text
-    .replace(/(###\s?)/g, "\n\n$1")
-    .replace(/(。)(?![\n])/g, "。\n")
-    .replace(/(！|？)(?![\n])/g, "$1\n")
-    .replace(/\|\s+\|/g, "|")
-    .replace(/\n\|/g, "\n")
-    .replace(/\|\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return text.replace(/\\n/g, '\n').trim();
 }
 
 // Configure multer for memory storage (limit increased to 20MB)
