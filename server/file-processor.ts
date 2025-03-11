@@ -226,35 +226,40 @@ async function processTextFile(textBuffer: Buffer): Promise<string[]> {
 
   try {
     const detectedEncoding = chardet.detect(textBuffer) || "utf-8";
-
-    // Convert encoding to a format compatible with Node.js
     const encodingMap: Record<string, BufferEncoding> = {
       "UTF-8": "utf8",
-      "ISO-8859-1": "latin1",
-      "ASCII": "ascii",
+      "Shift_JIS": "shift_jis",
+      "ISO-2022-JP": "iso2022jp",
+      "EUC-JP": "euc-jp",
       "UTF-16LE": "utf16le"
     };
 
     const encoding = encodingMap[detectedEncoding.toUpperCase()] || "utf8";
 
-    // Convert buffer to string
     const text = textBuffer.toString(encoding);
 
-    // Define chunk parameters
     const CHUNK_SIZE = 500;
     const CHUNK_OVERLAP = 80;
 
-    const sentences = tokenizer.tokenize(text);
+    // Escape special characters properly
+    const separators = ["\\n\\n", "\\n", "。", "？", "！", "\\.", "\\?", "\\!"];
+
+    // Create regex
+    const regex = new RegExp(`(${separators.join('|')})`, 'g');
+
+    // Split text using regex, preserving separators
+    const segments = text.split(regex).filter(Boolean);
+
     const chunks: string[] = [];
     let currentChunk = "";
 
-    for (const sentence of sentences) {
+    for (let i = 0; i < segments.length; i += 2) {
+      const sentence = segments[i] + (segments[i + 1] || "");
       if ((currentChunk + sentence).length <= CHUNK_SIZE) {
-        currentChunk += sentence + " ";
+        currentChunk += sentence;
       } else {
         chunks.push(currentChunk.trim());
-        // Set overlap: keep last 80 chars from currentChunk
-        currentChunk = currentChunk.slice(-CHUNK_OVERLAP) + " " + sentence + " ";
+        currentChunk = currentChunk.slice(-CHUNK_OVERLAP) + sentence;
       }
     }
 
@@ -264,11 +269,13 @@ async function processTextFile(textBuffer: Buffer): Promise<string[]> {
 
     console.log(`✅ Split text into ${chunks.length} chunks with ${CHUNK_OVERLAP}-character overlap.`);
     return chunks;
+
   } catch (error) {
     console.error("❌ Error processing text file:", error);
     throw error;
   }
 }
+
 
 /**
  * Process files (PDF/PPTX/DOCX → Images → GPT-4V → AstraDB)
