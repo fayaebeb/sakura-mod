@@ -7,7 +7,7 @@ import { processFile, storeInAstraDB, deleteFileFromAstraDB } from "./file-proce
 import { insertMessageSchema } from "@shared/schema";
 
 // Langflow API configuration
-const LANGFLOW_API = "https://fayaebeb-sakuralf.hf.space/api/v1/run/11717339-cef3-4786-b3d7-59602c779cb4";
+const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/8cc3616d-0e44-4bd5-9aa3-7ae57e2a2d45";
 
 // Helper function to format the bot's response
 function formatBotResponse(text: string): string {
@@ -23,12 +23,18 @@ function formatBotResponse(text: string): string {
 }
 
 // Configure multer for memory storage (limit increased to 20MB)
+// ✅ Fixed multer configuration with UTF-8 filename handling
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 20 * 1024 * 1024, // 20MB limit
   },
+  fileFilter: (req, file, cb) => {
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    cb(null, true);
+  }
 });
+
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -134,14 +140,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         headers: {
               Authorization: "Bearer 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",
                 "Content-Type": "application/json",
-                "x-api-key": "sk-02Z80ad25BlPKPMxU47rVun7NuiOX5esqyjPZAsso2A",
+                "x-api-key": "sk-k8wKMFfgyswK_0aEJgDbFdCF8vqDCTQRIGRCNpRLymw",
               },
               body: JSON.stringify({
                 input_value: body.content,
                 output_type: "chat",
                 input_type: "chat",
                 tweaks: {
-                  "TextInput-K3VLO": {
+                  "TextInput-KQO80": {
                     input_value: persistentSessionId,
             },
           },
