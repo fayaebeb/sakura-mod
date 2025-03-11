@@ -226,7 +226,7 @@ async function processTextFile(textBuffer: Buffer): Promise<string[]> {
 
   try {
     const detectedEncoding = chardet.detect(textBuffer) || "utf-8";
-    
+
     // Convert encoding to a format compatible with Node.js
     const encodingMap: Record<string, BufferEncoding> = {
       "UTF-8": "utf8",
@@ -234,14 +234,16 @@ async function processTextFile(textBuffer: Buffer): Promise<string[]> {
       "ASCII": "ascii",
       "UTF-16LE": "utf16le"
     };
-    
+
     const encoding = encodingMap[detectedEncoding.toUpperCase()] || "utf8";
 
     // Convert buffer to string
     const text = textBuffer.toString(encoding);
 
-    // Split text into 1000-character chunks (sentence-aware)
-    const CHUNK_SIZE = 1000;
+    // Define chunk parameters
+    const CHUNK_SIZE = 500;
+    const CHUNK_OVERLAP = 80;
+
     const sentences = tokenizer.tokenize(text);
     const chunks: string[] = [];
     let currentChunk = "";
@@ -251,15 +253,16 @@ async function processTextFile(textBuffer: Buffer): Promise<string[]> {
         currentChunk += sentence + " ";
       } else {
         chunks.push(currentChunk.trim());
-        currentChunk = sentence + " ";
+        // Set overlap: keep last 80 chars from currentChunk
+        currentChunk = currentChunk.slice(-CHUNK_OVERLAP) + " " + sentence + " ";
       }
     }
 
-    if (currentChunk) {
+    if (currentChunk.trim()) {
       chunks.push(currentChunk.trim());
     }
 
-    console.log(`✅ Split text into ${chunks.length} chunks`);
+    console.log(`✅ Split text into ${chunks.length} chunks with ${CHUNK_OVERLAP}-character overlap.`);
     return chunks;
   } catch (error) {
     console.error("❌ Error processing text file:", error);
