@@ -5,18 +5,15 @@ import { setupAuth } from "./auth";
 import multer from "multer";
 import { processFile, storeInAstraDB, deleteFileFromAstraDB } from "./file-processor";
 import { insertMessageSchema } from "@shared/schema";
+import { db } from "./file-processor";
 
 // Langflow API configuration
 const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/8cc3616d-0e44-4bd5-9aa3-7ae57e2a2d45";
 
-// Helper function to format the bot's response
-// Updated, minimal formatting function
 function formatBotResponse(text: string): string {
   return text.replace(/\\n/g, '\n').trim();
 }
 
-// Configure multer for memory storage (limit increased to 20MB)
-// ✅ Fixed multer configuration with UTF-8 filename handling
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -132,16 +129,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         method: "POST",
         headers: {
               Authorization: "Bearer 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",
-                "Content-Type": "application/json",
+          "Content-Type": "application/json",
                 "x-api-key": "sk-k8wKMFfgyswK_0aEJgDbFdCF8vqDCTQRIGRCNpRLymw",
-              },
-              body: JSON.stringify({
-                input_value: body.content,
-                output_type: "chat",
-                input_type: "chat",
-                tweaks: {
-                  "TextInput-KQO80": {
-                    input_value: persistentSessionId,
+        },
+        body: JSON.stringify({
+          input_value: body.content,
+          output_type: "chat",
+          input_type: "chat",
+          tweaks: {
+            "TextInput-KQO80": {
+              input_value: persistentSessionId,
             },
           },
         }),
@@ -218,6 +215,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error retrieving file history:", error);
       res.status(500).json({
         message: "Failed to retrieve file history",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Add new DELETE endpoint for messages
+  app.delete("/api/messages/:messageId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const messageId = parseInt(req.params.messageId);
+    if (isNaN(messageId)) {
+      return res.status(400).json({ error: "Invalid message ID" });
+    }
+
+    try {
+      // Get the message to check if it's a bot message and get the message ID
+      const message = await storage.getMessage(messageId);
+
+      if (!message) {
+        return res.status(404).json({ error: "Message not found" });
+      }
+
+      // Only allow deletion of bot messages
+      if (!message.isBot) {
+        return res.status(403).json({ error: "Can only delete bot messages" });
+      }
+
+      // Check if this message belongs to the authenticated user
+      if (message.userId !== req.user!.id) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+
+      // Extract MSGID from content using the correct format
+      const msgIdMatch = message.content.match(/MSGID:\s*([a-f0-9-]+)/i);
+      console.log("Extracted MSGID:", msgIdMatch ? msgIdMatch[1] : "Not found");
+
+      if (msgIdMatch) {
+        const astraMessageId = msgIdMatch[1];
+        try {
+          // Delete from AstraDB with proper metadata field
+          await db.collection("chat_data").deleteMany({
+            "metadata.msgid": astraMessageId
+          });
+          console.log(`Successfully deleted message with MSGID ${astraMessageId} from AstraDB`);
+        } catch (astraError) {
+          console.error("Error deleting from AstraDB:", astraError);
+          // Continue with local deletion even if AstraDB deletion fails
+        }
+      } else {
+        console.log("No MSGID found in message content:", message.content);
+      }
+
+      // Delete from local database
+      const deletedMessage = await storage.deleteMessage(messageId);
+      console.log(`Successfully deleted message ${messageId} from PostgreSQL`);
+
+      res.json(deletedMessage);
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      res.status(500).json({
+        message: "Failed to delete message",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

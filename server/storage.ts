@@ -11,8 +11,10 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getMessage(id: number): Promise<Message | undefined>;
   getMessagesByUserAndSession(userId: number, sessionId: string): Promise<Message[]>;
   createMessage(userId: number, message: InsertMessage): Promise<Message>;
+  deleteMessage(id: number): Promise<Message>;
   getUserLastSession(userId: number): Promise<Session | undefined>;
   createUserSession(userId: number, sessionId: string): Promise<Session>;
   createFile(userId: number, file: InsertFile): Promise<File>;
@@ -49,6 +51,11 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getMessage(id: number): Promise<Message | undefined> {
+    const [message] = await db.select().from(messages).where(eq(messages.id, id));
+    return message;
+  }
+
   async getMessagesByUserAndSession(userId: number, sessionId: string): Promise<Message[]> {
     return await db
       .select()
@@ -72,6 +79,14 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return newMessage;
+  }
+
+  async deleteMessage(id: number): Promise<Message> {
+    const [deletedMessage] = await db
+      .delete(messages)
+      .where(eq(messages.id, id))
+      .returning();
+    return deletedMessage;
   }
 
   async getUserLastSession(userId: number): Promise<Session | undefined> {
