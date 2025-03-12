@@ -10,8 +10,8 @@ import { DataAPIClient } from "@datastax/astra-db-ts";
 // Langflow API configuration
 const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/8cc3616d-0e44-4bd5-9aa3-7ae57e2a2d45";
 
-const client = new DataAPIClient("AstraCS:cKDbOMrglnrNfusCHwJpInxg:1e948b020abc7e0d5a4ee067399f053458ba97d30e894b8d33120fd19d9e7f71");
-const db = client.db("https://74e5ad6c-983a-4bb9-a32c-f3c2e262daf5-us-east-2.apps.astra.datastax.com");
+const client = new DataAPIClient("AstraCS:lzKjtBdGotrdZJoKjWBvaKpl:6725d2fee7e56a8cd43a471489cdb4948680d73dedac07082803ac457d020b04");
+const db = client.db("https://5d1385dc-512e-479e-91c2-89bd6dbb1bf6-ap-south-1.apps.astra.datastax.com");
 
 function formatBotResponse(text: string): string {
   return text.replace(/\\n/g, '\n').trim();
