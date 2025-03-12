@@ -22,18 +22,19 @@ export default function ChatMessage({ message }: { message: Message }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
       toast({
-        title: "Message deleted",
-        description: "The message has been removed successfully.",
+        title: "メッセージを削除しました",
+        description: "メッセージが正常に削除されました。",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: "Failed to delete the message. Please try again.",
+        title: "エラー",
+        description: "メッセージの削除に失敗しました。もう一度お試しください。",
         variant: "destructive",
       });
     },
   });
+  
 
   return (
     <div
