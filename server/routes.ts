@@ -5,10 +5,13 @@ import { setupAuth } from "./auth";
 import multer from "multer";
 import { processFile, storeInAstraDB, deleteFileFromAstraDB } from "./file-processor";
 import { insertMessageSchema } from "@shared/schema";
-import { db } from "./file-processor";
+import { DataAPIClient } from "@datastax/astra-db-ts";
 
 // Langflow API configuration
 const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/8cc3616d-0e44-4bd5-9aa3-7ae57e2a2d45";
+
+const client = new DataAPIClient("AstraCS:cKDbOMrglnrNfusCHwJpInxg:1e948b020abc7e0d5a4ee067399f053458ba97d30e894b8d33120fd19d9e7f71");
+const db = client.db("https://74e5ad6c-983a-4bb9-a32c-f3c2e262daf5-us-east-2.apps.astra.datastax.com");
 
 function formatBotResponse(text: string): string {
   return text.replace(/\\n/g, '\n').trim();
