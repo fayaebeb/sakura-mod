@@ -74,31 +74,32 @@ export default function ChatMessage({ message }: { message: Message }) {
 
         {message.isBot && (
           <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
-                  <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Message</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete this message? This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => deleteMessage.mutate(message.id)}
-                    className="bg-red-500 hover:bg-red-600"
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6">
+                <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>メッセージを削除</AlertDialogTitle>
+                <AlertDialogDescription>
+                  本当にこのメッセージを削除しますか？この操作は元に戻せません。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => deleteMessage.mutate(message.id)}
+                  className="bg-red-500 hover:bg-red-600"
+                >
+                  削除
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+        
         )}
       </Card>
     </div>
