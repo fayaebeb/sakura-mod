@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { cn } from "@/lib/utils";
 
 const CHAT_SESSION_KEY_PREFIX = "chat_session_id_user_";
 const TUTORIAL_SHOWN_KEY_PREFIX = "tutorial_shown_user_";
@@ -165,21 +166,21 @@ export default function ChatInterface() {
     },
     onMutate: async (content: string) => {
       await queryClient.cancelQueries({ queryKey: ["/api/messages", sessionId] });
-  
+
       const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages", sessionId]) || [];
-  
+
       const optimisticUserMessage: Message = {
-        id: nanoid(),
+        id: parseInt(nanoid(), 36), // Convert string to number for ID
         content,
         createdAt: new Date().toISOString(),
         isBot: false,
       };
-  
+
       queryClient.setQueryData<Message[]>(["/api/messages", sessionId], [
         ...previousMessages,
         optimisticUserMessage,
       ]);
-  
+
       return { previousMessages };
     },
     onSuccess: (newBotMessage: Message) => {
@@ -243,16 +244,19 @@ export default function ChatInterface() {
     },
   });
 
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
+    const selectedFile = e.target.files?.[0] || null; 
+    handleFileSelection(selectedFile);
+  };
+
+  const handleFileSelection = (selectedFile: File | null) => {
     if (!selectedFile) return;
 
     const allowedTypes = [
       'application/pdf',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation', // PPTX
-      'application/vnd.ms-powerpoint', // PPT
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation', 
+      'application/vnd.ms-powerpoint', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
       "text/plain",
       ".txt"
     ];
@@ -269,6 +273,29 @@ export default function ChatInterface() {
     setFile(selectedFile);
     uploadFile.mutate(selectedFile);
   };
+
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const droppedFile = e.dataTransfer.files[0];
+    handleFileSelection(droppedFile);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,11 +316,24 @@ export default function ChatInterface() {
   }
 
   return (
-    <Card className="flex flex-col h-[calc(100vh-12rem)] relative">
+    <Card
+      className="flex flex-col h-[calc(100vh-12rem)] relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {showTutorial && <Tutorial onClose={handleCloseTutorial} />}
 
+      {isDragging && (
+        <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary/50 rounded-lg z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-primary">
+            <FileText className="h-12 w-12" />
+            <p className="text-lg font-medium">ドロップしてファイルをアップロード</p>
+          </div>
+        </div>
+      )}
 
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className={cn("flex-1 p-4", isDragging && "pointer-events-none")}>
         <div className="space-y-4">
           {messages.map((message) => (
             <ChatMessage key={message.id} message={message} />
@@ -302,9 +342,8 @@ export default function ChatInterface() {
             <div className="flex flex-col items-center gap-2 p-4">
               <LoadingDots />
               <p className="text-sm text-muted-foreground">
-  {uploadFile.isPending ? "ファイルを処理中です..." : "桜AIが一生懸命考えているよ...！"}
-</p>
-
+                {uploadFile.isPending ? "ファイルを処理中です..." : "桜AIが一生懸命考えているよ...！"}
+              </p>
             </div>
           )}
         </div>
