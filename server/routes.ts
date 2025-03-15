@@ -258,7 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const astraMessageId = msgIdMatch[1];
         try {
           // Delete from AstraDB with proper metadata field
-          await db.collection("chat_data").deleteMany({
+          await db.collection("files_data").deleteMany({
             "metadata.msgid": astraMessageId
           });
           console.log(`Successfully deleted message with MSGID ${astraMessageId} from AstraDB`);
