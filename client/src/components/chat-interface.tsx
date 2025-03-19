@@ -60,9 +60,7 @@ const Tutorial = ({ onClose }: { onClose: () => void }) => {
             {steps.map((_, idx) => (
               <div
                 key={idx}
-                className={`w-2 h-2 rounded-full ${
-                  idx + 1 === step ? "bg-primary" : "bg-muted"
-                }`}
+                className={`w-2 h-2 rounded-full ${idx + 1 === step ? "bg-primary" : "bg-muted"}`}
               />
             ))}
           </div>
@@ -92,6 +90,9 @@ export default function ChatInterface() {
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  // New state to detect mobile devices
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     const tutorialShownKey = `${TUTORIAL_SHOWN_KEY_PREFIX}${user.id}`;
@@ -100,6 +101,7 @@ export default function ChatInterface() {
       setShowTutorial(true);
     }
   }, [user]);
+
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -110,6 +112,14 @@ export default function ChatInterface() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Check for mobile device on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsMobileDevice(/Mobi|Android/i.test(window.navigator.userAgent));
+    }
+  }, []);
+
   const handleCloseTutorial = () => {
     if (!user) return;
     const tutorialShownKey = `${TUTORIAL_SHOWN_KEY_PREFIX}${user.id}`;
@@ -169,9 +179,6 @@ export default function ChatInterface() {
       await queryClient.cancelQueries({ queryKey: ["/api/messages", sessionId] });
 
       const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages", sessionId]) || [];
-
-      // Create an optimistic update without using explicit types
-      // This avoids type errors while still providing the UI update
       const previousData = queryClient.getQueryData<Message[]>(["/api/messages", sessionId]) || [];
       
       // @ts-ignore - Bypassing type checks for optimistic UI updates
@@ -235,7 +242,11 @@ export default function ChatInterface() {
       queryClient.invalidateQueries({ queryKey: ["/api/messages", sessionId] });
       toast({
         title: "ファイルのアップロードが完了しました！",
-        description: <div className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500" /> ファイルを処理しています...</div>,
+        description: (
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-green-500" /> ファイルを処理しています...
+          </div>
+        ),
         duration: 3000,
       });
       setFile(null);
@@ -412,8 +423,8 @@ export default function ChatInterface() {
           className="flex-1 min-h-[40px] max-h-[150px] resize-none overflow-y-auto"
           style={{ height: 'auto' }}
           onKeyDown={(e) => {
-            // Submit form on Enter key (without shift)
-            if (e.key === 'Enter' && !e.shiftKey) {
+            // On non-mobile devices, Enter (without Shift) will submit the message
+            if (!isMobileDevice && e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               if (input.trim() && !sendMessage.isPending) {
                 handleSubmit(e);
