@@ -9,10 +9,10 @@ import { execSync } from "child_process";
 import { storage } from "./storage";
 import * as chardet from "chardet";
 import natural from "natural";
-import BoxSDK from 'box-node-sdk';
+import { google } from "googleapis";
+import { Readable } from "stream";
 
 const { SentenceTokenizer } = natural;
-
 
 // Configure WebSocket for Neon
 neonConfig.webSocketConstructor = ws;
@@ -24,18 +24,17 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const client = new DataAPIClient("AstraCS:lzKjtBdGotrdZJoKjWBvaKpl:6725d2fee7e56a8cd43a471489cdb4948680d73dedac07082803ac457d020b04");
 const db = client.db("https://5d1385dc-512e-479e-91c2-89bd6dbb1bf6-ap-south-1.apps.astra.datastax.com");
 
-// Initialize Box SDK with client credentials
-const boxSdk = new BoxSDK({
-  clientID: process.env.BOX_CLIENT_ID || '',
-  clientSecret: process.env.BOX_CLIENT_SECRET || ''
+// ✅ GOOGLE DRIVE AUTHENTICATION
+// Replace './google.json' with the path to your service account JSON key file
+const auth = new google.auth.GoogleAuth({
+  keyFile: "./google.json",
+  scopes: ["https://www.googleapis.com/auth/drive"]
 });
-
-// Create a Box client using the developer token
-const boxClient = boxSdk.getBasicClient(process.env.BOX_DEVELOPER_TOKEN || '');
+const drive = google.drive({ version: "v3", auth });
 
 interface ChunkMetadata {
   filename: string;
-  filelink?: string; // Adding filelink to store Box shared link
+  filelink?: string;
 }
 
 interface UploadedFile {
@@ -48,58 +47,64 @@ interface UploadedFile {
 const tokenizer = new SentenceTokenizer([]);
 
 /**
- * Upload file to Box and generate a shared link
+ * Upload file to Google Drive and generate a shareable link
  */
-async function uploadToBoxAndGetSharedLink(file: UploadedFile): Promise<string> {
-  console.log(`📤 Uploading file to Box: ${file.originalname}`);
+async function uploadToGoogleDriveAndGetLink(file: UploadedFile): Promise<string> {
+  console.log(`📤 Uploading file to Google Drive: ${file.originalname}`);
   try {
-    // Create a temporary file for Box upload
-    const tempDir = tmp.dirSync({ dir: "/tmp", unsafeCleanup: true });
-    const tempFilePath = path.join(tempDir.name, file.originalname);
-    
-    // Write buffer to temporary file
-    await fs.writeFile(tempFilePath, file.buffer);
-    
-    // Upload file to Box with stream
-    const folderID = '312443939476'; // Root folder
-    const fileName = file.originalname;
-    const fileSize = file.buffer.length;
-    
-    // Upload file to Box (using the correct API call format)
-    const boxUploadResponse = await boxClient.files.uploadFile(
-      folderID, 
-      fileName,
-      file.buffer
-    );
+    // Set your target folder ID (extracted from your Drive folder URL)
+    const folderID = "1Nh667VEAWXqshRZIpvkPW3nvv-d0RBR3";
 
-    console.log(`✅ File uploaded to Box with ID: ${boxUploadResponse.entries[0].id}`);
-    
-    // Generate a permanent shared link for the file
-    const fileID = boxUploadResponse.entries[0].id;
-    const sharedLinkResponse = await boxClient.files.update(fileID, {
-      shared_link: {
-        access: 'open',
-        permissions: {
-          can_download: true
-        },
-        // Setting no expiration date (null value) creates a permanent link
-        unshared_at: null
+    // Prepare file metadata
+    const fileMetadata = {
+      name: file.originalname,
+      parents: [folderID]
+    };
+
+    // Prepare media object: convert file buffer to a readable stream
+    const media = {
+      mimeType: file.mimetype,
+      body: Readable.from(file.buffer)
+    };
+
+    // Upload the file using drive.files.create
+    const createResponse = await drive.files.create({
+      requestBody: fileMetadata,
+      media,
+      fields: "id"
+    });
+
+    const fileId = createResponse.data.id;
+    if (!fileId) {
+      throw new Error("No file ID returned from Google Drive API");
+    }
+    console.log(`✅ File uploaded to Google Drive with ID: ${fileId}`);
+
+    // Set file permission so that anyone with the link can read the file
+    await drive.permissions.create({
+      fileId,
+      requestBody: {
+        role: "reader",
+        type: "anyone"
       }
     });
 
-    // Clean up temporary file
-    await fs.unlink(tempFilePath).catch(() => {});
-    tempDir.removeCallback();
+    // Retrieve the shareable link for the file
+    const getResponse = await drive.files.get({
+      fileId,
+      fields: "webViewLink"
+    });
 
-    const sharedLink = sharedLinkResponse.shared_link?.url || '';
-    console.log(`✅ Generated permanent shared link: ${sharedLink}`);
-    
-    return sharedLink;
+    const sharedLink = getResponse.data.webViewLink;
+    console.log(`✅ Generated shareable link: ${sharedLink}`);
+
+    return sharedLink || "";
   } catch (error) {
-    console.error('❌ Error uploading to Box:', error);
-    throw new Error(`Failed to upload file to Box: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error("❌ Error uploading to Google Drive:", error);
+    throw new Error(`Failed to upload file to Google Drive: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
+
 
 /**
  * Execute a shell command with error handling
@@ -363,16 +368,16 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
 
   let extractedTexts: string[] = [];
   const tempFiles: string[] = []; // Track temporary files for cleanup
-  let boxSharedLink = '';
+  let driveSharedLink = '';
 
   try {
-    // Upload file to Box and get shared link
+    // Upload file to Google Drive and get shareable link
     try {
-      boxSharedLink = await uploadToBoxAndGetSharedLink(file);
-      console.log(`📦 File uploaded to Box with permanent shared link: ${boxSharedLink}`);
-    } catch (boxError) {
-      console.error('❌ Box upload failed:', boxError);
-      // Continue with processing even if Box upload fails
+      driveSharedLink = await uploadToGoogleDriveAndGetLink(file);
+      console.log(`📦 File uploaded to Google Drive with shareable link: ${driveSharedLink}`);
+    } catch (driveError) {
+      console.error('❌ Google Drive upload failed:', driveError);
+      // Continue with processing even if Drive upload fails
     }
 
     switch (file.mimetype) {
@@ -435,26 +440,26 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
     // Create metadata for each chunk
     const metadata: ChunkMetadata[] = extractedTexts.map(() => ({
       filename: file.originalname,
-      filelink: boxSharedLink || undefined,
+      filelink: driveSharedLink || undefined,
     }));
 
     // Store extracted data in AstraDB
     await storeInAstraDB(extractedTexts, metadata);
 
     console.log(`📦 Successfully stored ${extractedTexts.length} chunks in AstraDB.`);
-
   } catch (error) {
     console.error("❌ Error processing file:", error);
     throw error;
   } finally {
-    // ✅ Ensure all temporary files are deleted
+    // Ensure all temporary files are deleted
     if (tempFiles.length > 0) {
       console.log("🧹 Cleaning up temporary files...");
-      await Promise.all(tempFiles.map(path => fs.unlink(path).catch(() => {})));
+      await Promise.all(tempFiles.map(filePath => fs.unlink(filePath).catch(() => {})));
       console.log("✅ Temporary files deleted.");
     }
   }
 }
+
 
 
 

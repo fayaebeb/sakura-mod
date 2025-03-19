@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onError: (error: Error) => {
       toast({
-        title: "Login failed",
+        title: "ログインに失敗しました",
         description: error.message,
         variant: "destructive",
       });
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onError: (error: Error) => {
       toast({
-        title: "Registration failed",
+        title: "登録に失敗しました",
         description: error.message,
         variant: "destructive",
       });
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onError: (error: Error) => {
       toast({
-        title: "Logout failed",
+        title: "ログアウトに失敗しました",
         description: error.message,
         variant: "destructive",
       });
