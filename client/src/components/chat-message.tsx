@@ -11,7 +11,12 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
 
-export default function ChatMessage({ message }: { message: Message }) {
+// Use a proper type interface for messages that matches the actual structure in the database
+interface MessageWithBot extends Omit<Message, 'isBot'> {
+  isBot: boolean;
+}
+
+export default function ChatMessage({ message }: { message: MessageWithBot }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -53,10 +58,10 @@ export default function ChatMessage({ message }: { message: Message }) {
           <div
             className={cn("w-full h-full flex items-center justify-center text-xs font-semibold rounded-full", {
               "bg-primary text-primary-foreground": message.isBot,
-              "bg-muted text-black": !message.isBot,
+              "bg-pink-300 text-white": !message.isBot,
             })}
           >
-            あなた
+            モッド
           </div>
         )}
       </Avatar>
@@ -68,9 +73,13 @@ export default function ChatMessage({ message }: { message: Message }) {
         })}
       >
         <div className="prose break-words">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content}
-          </ReactMarkdown>
+          {message.isBot ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
+          ) : (
+            <div className="whitespace-pre-wrap">{message.content}</div>
+          )}
         </div>
 
         {message.isBot && (

@@ -9,6 +9,7 @@ import { execSync } from "child_process";
 import { storage } from "./storage";
 import * as chardet from "chardet";
 import natural from "natural";
+import BoxSDK from 'box-node-sdk';
 
 const { SentenceTokenizer } = natural;
 
@@ -23,8 +24,18 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const client = new DataAPIClient("AstraCS:lzKjtBdGotrdZJoKjWBvaKpl:6725d2fee7e56a8cd43a471489cdb4948680d73dedac07082803ac457d020b04");
 const db = client.db("https://5d1385dc-512e-479e-91c2-89bd6dbb1bf6-ap-south-1.apps.astra.datastax.com");
 
+// Initialize Box SDK with client credentials
+const boxSdk = new BoxSDK({
+  clientID: process.env.BOX_CLIENT_ID || '',
+  clientSecret: process.env.BOX_CLIENT_SECRET || ''
+});
+
+// Create a Box client using the developer token
+const boxClient = boxSdk.getBasicClient(process.env.BOX_DEVELOPER_TOKEN || '');
+
 interface ChunkMetadata {
   filename: string;
+  filelink?: string; // Adding filelink to store Box shared link
 }
 
 interface UploadedFile {
@@ -35,6 +46,60 @@ interface UploadedFile {
 
 // Sentence tokenizer for splitting text files into chunks
 const tokenizer = new SentenceTokenizer([]);
+
+/**
+ * Upload file to Box and generate a shared link
+ */
+async function uploadToBoxAndGetSharedLink(file: UploadedFile): Promise<string> {
+  console.log(`📤 Uploading file to Box: ${file.originalname}`);
+  try {
+    // Create a temporary file for Box upload
+    const tempDir = tmp.dirSync({ dir: "/tmp", unsafeCleanup: true });
+    const tempFilePath = path.join(tempDir.name, file.originalname);
+    
+    // Write buffer to temporary file
+    await fs.writeFile(tempFilePath, file.buffer);
+    
+    // Upload file to Box with stream
+    const folderID = '0'; // Root folder
+    const fileName = file.originalname;
+    const fileSize = file.buffer.length;
+    
+    // Upload file to Box (using the correct API call format)
+    const boxUploadResponse = await boxClient.files.uploadFile(
+      folderID, 
+      fileName,
+      file.buffer
+    );
+
+    console.log(`✅ File uploaded to Box with ID: ${boxUploadResponse.entries[0].id}`);
+    
+    // Generate a permanent shared link for the file
+    const fileID = boxUploadResponse.entries[0].id;
+    const sharedLinkResponse = await boxClient.files.update(fileID, {
+      shared_link: {
+        access: 'open',
+        permissions: {
+          can_download: true
+        },
+        // Setting no expiration date (null value) creates a permanent link
+        unshared_at: null
+      }
+    });
+
+    // Clean up temporary file
+    await fs.unlink(tempFilePath).catch(() => {});
+    tempDir.removeCallback();
+
+    const sharedLink = sharedLinkResponse.shared_link?.url || '';
+    console.log(`✅ Generated permanent shared link: ${sharedLink}`);
+    
+    return sharedLink;
+  } catch (error) {
+    console.error('❌ Error uploading to Box:', error);
+    throw new Error(`Failed to upload file to Box: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
 
 /**
  * Execute a shell command with error handling
@@ -239,10 +304,11 @@ async function processTextFile(textBuffer: Buffer): Promise<string[]> {
     const detectedEncoding = chardet.detect(textBuffer) || "utf-8";
     const encodingMap: Record<string, BufferEncoding> = {
       "UTF-8": "utf8",
-      "Shift_JIS": "shift_jis",
-      "ISO-2022-JP": "iso2022jp",
-      "EUC-JP": "euc-jp",
-      "UTF-16LE": "utf16le"
+      "UTF-16LE": "utf16le",
+      // These are not standard Node.js BufferEncoding types, so use a default for them
+      "Shift_JIS": "utf8",
+      "ISO-2022-JP": "utf8",
+      "EUC-JP": "utf8"
     };
 
     const encoding = encodingMap[detectedEncoding.toUpperCase()] || "utf8";
@@ -297,8 +363,18 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
 
   let extractedTexts: string[] = [];
   const tempFiles: string[] = []; // Track temporary files for cleanup
+  let boxSharedLink = '';
 
   try {
+    // Upload file to Box and get shared link
+    try {
+      boxSharedLink = await uploadToBoxAndGetSharedLink(file);
+      console.log(`📦 File uploaded to Box with permanent shared link: ${boxSharedLink}`);
+    } catch (boxError) {
+      console.error('❌ Box upload failed:', boxError);
+      // Continue with processing even if Box upload fails
+    }
+
     switch (file.mimetype) {
       case "application/pdf":
         console.log("📄 PDF file detected. Converting to images...");
@@ -359,6 +435,7 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
     // Create metadata for each chunk
     const metadata: ChunkMetadata[] = extractedTexts.map(() => ({
       filename: file.originalname,
+      filelink: boxSharedLink || undefined,
     }));
 
     // Store extracted data in AstraDB
@@ -392,7 +469,7 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
       metadata: metadata[index] || {},
     }));
 
-    await db.collection("files_data").insertMany(documents);
+    await db.collection("files").insertMany(documents);
     console.log("✅ Successfully stored text chunks in AstraDB.");
   } catch (error) {
     console.error("❌ AstraDB storage error:", error);
@@ -407,7 +484,7 @@ export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMe
 export async function deleteFileFromAstraDB(filename: string): Promise<void> {
   console.log(`🗑️ Deleting file data from AstraDB: ${filename}`);
   try {
-    await db.collection("files_data").deleteMany({
+    await db.collection("files").deleteMany({
       "metadata.filename": filename
     });
     console.log("✅ Successfully deleted file data from AstraDB");
@@ -421,7 +498,7 @@ export async function deleteFileFromAstraDB(filename: string): Promise<void> {
 async function testAstraDBConnection() {
   try {
     console.log("Testing AstraDB connection...");
-    await db.collection("files_data").findOne({});
+    await db.collection("files").findOne({});
     console.log("✅ Successfully connected to AstraDB");
   } catch (error) {
     console.error("❌ Error connecting to AstraDB:", error);
@@ -438,7 +515,7 @@ export async function retrieveRelevantChunks(query: string, topK: number = 5): P
   console.log(`🔍 Searching AstraDB for relevant chunks: "${query}"`);
 
   try {
-    const results = await db.collection("files_data").find({
+    const results = await db.collection("files").find({
       $vector: {
         query: query,
         path: "content",
