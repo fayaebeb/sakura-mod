@@ -27,7 +27,7 @@ const db = client.db("https://5d1385dc-512e-479e-91c2-89bd6dbb1bf6-ap-south-1.ap
 // ✅ GOOGLE DRIVE AUTHENTICATION
 // Replace './google.json' with the path to your service account JSON key file
 const auth = new google.auth.GoogleAuth({
-  keyFile: "./google.json",
+  keyFile: "/app/google.json",
   scopes: ["https://www.googleapis.com/auth/drive"]
 });
 const drive = google.drive({ version: "v3", auth });
