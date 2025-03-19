@@ -27,9 +27,23 @@ const db = client.db("https://5d1385dc-512e-479e-91c2-89bd6dbb1bf6-ap-south-1.ap
 // ✅ GOOGLE DRIVE AUTHENTICATION
 // Replace './google.json' with the path to your service account JSON key file
 const auth = new google.auth.GoogleAuth({
-  keyFile: "/app/google.json",
-  scopes: ["https://www.googleapis.com/auth/drive"]
+  credentials: {
+    type: "service_account",
+    project_id: process.env.GOOGLE_PROJECT_ID,
+    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+    private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"), // Fix newlines
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    auth_uri: process.env.GOOGLE_AUTH_URI,
+    token_uri: process.env.GOOGLE_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_CERT_URL,
+    client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
+    universe_domain: process.env.GOOGLE_UNIVERSE_DOMAIN,
+  },
+  scopes: ["https://www.googleapis.com/auth/drive"],
 });
+
+// Initialize Google Drive API
 const drive = google.drive({ version: "v3", auth });
 
 interface ChunkMetadata {
