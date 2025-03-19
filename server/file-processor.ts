@@ -184,39 +184,50 @@ async function docxToImages(docxBuffer: Buffer): Promise<string[]> {
  */
 async function analyzeImage(imagePath: string): Promise<string> {
   console.log(`🔍 Analyzing image: ${imagePath}`);
-
   const imageBuffer = await fs.readFile(imagePath);
   const base64Image = imageBuffer.toString("base64");
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Extract key points from this document image. Summarize key points concisely while preserving the original meaning. Do not add interpretations, descriptions, or inferred context. Ensure the output is structured for efficient RAG-based vector storage without special formatting." },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/png;base64,${base64Image}`,
+  let retries = 3;
+  let delay = 2000; // Start with a 2-second delay
+
+  while (retries > 0) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Summarize key points from this document image concisely and accurately. Preserve meaning without adding interpretations. Structure output for vector storage." },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/png;base64,${base64Image}`,
+                },
               },
-            },
-          ],
-        },
-      ],
-      max_tokens: 1000,
-    });
+            ],
+          },
+        ],
+        max_tokens: 1000,
+      });
 
-    const extractedText = response.choices[0]?.message?.content ?? "No response";
-    console.log(`✅ Extracted text: ${extractedText.substring(0, 100)}...`);
-
-    return extractedText;
-  } catch (error) {
-    console.error("❌ Error analyzing image:", error);
-    return "Error processing image";
+      return response.choices[0]?.message?.content ?? "No response";
+    } catch (error: any) {
+      if (error.status === 429) {
+        console.warn(`⚠️ Rate limit reached. Retrying in ${delay / 1000} seconds...`);
+        await new Promise((res) => setTimeout(res, delay));
+        delay *= 2; // Exponential backoff (2s → 4s → 8s)
+        retries--;
+      } else {
+        console.error("❌ Error analyzing image:", error);
+        throw error;
+      }
+    }
   }
+
+  throw new Error("Failed to analyze image after multiple attempts due to rate limits.");
 }
+
 
 /**
  * Process text file into chunks for vector storage
