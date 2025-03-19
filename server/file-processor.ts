@@ -61,7 +61,7 @@ async function uploadToBoxAndGetSharedLink(file: UploadedFile): Promise<string> 
     await fs.writeFile(tempFilePath, file.buffer);
     
     // Upload file to Box with stream
-    const folderID = '0'; // Root folder
+    const folderID = '312443939476'; // Root folder
     const fileName = file.originalname;
     const fileSize = file.buffer.length;
     
