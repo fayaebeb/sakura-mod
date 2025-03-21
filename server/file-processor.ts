@@ -282,7 +282,7 @@ async function analyzeImage(imagePath: string): Promise<string> {
           {
             role: "user",
             content: [
-              { type: "text", text: "Summarize key points from this document image concisely and accurately. Preserve meaning without adding interpretations. Structure output for vector storage." },
+              { type: "text", text: "Extract all content and structured data from this document image in Japanese. Preserve original formatting and meaning as accurately as possible for vector storage." },
               {
                 type: "image_url",
                 image_url: {
