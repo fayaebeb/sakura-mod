@@ -274,9 +274,9 @@ async function analyzeImage(imagePath: string): Promise<string> {
   const imageBuffer = await fs.readFile(imagePath);
   const base64Image = imageBuffer.toString("base64");
 
-  const maxRetries = 5;
+  const maxRetries = 15;
   let retries = 0;
-  let delay = 3000; // Initial delay of 3 seconds
+  let delay = 60000; // Initial delay of 3 seconds
 
   while (retries < maxRetries) {
     try {
