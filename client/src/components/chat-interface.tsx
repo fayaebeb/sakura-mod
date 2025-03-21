@@ -33,19 +33,14 @@ const Tutorial = ({ onClose }: { onClose: () => void }) => {
   const steps = [
     {
       title: "ようこそ！",
-      description: "桜AIへようこそ！私があなたのチャット相手です♪",
+      description: "「桜AI」は、PCKKにおいて、情報提供や質問への回答を行うAIです。私の役割は、さまざまなトピックについて正確で分かりやすい情報を提供し、ユーザーのリクエストに的確にお応えすることです。たとえば、データに基づくご質問には、社内資料や外部情報を参照しながら丁寧にお答えします。",
       icon: <Sparkles className="h-5 w-5 text-pink-400" />
     },
     {
-      title: "メッセージを送ってみよう！",
-      description: "下のテキストボックスにメッセージを入力して、送信ボタンを押してね！",
-      icon: <Send className="h-5 w-5 text-blue-400" />
-    },
-    {
       title: "楽しくお話ししましょう！",
-      description: "私が返事をするのを待っている間は、かわいい待機アニメーションが表示されるよ♪",
+      description: "「桜AI」は、OpenAIの生成モデル「ChatGPT-4o」を使用しています。社内の全国うごき統計に関する営業資料や、人流に関する社内ミニ講座の内容を基礎データとして取り込み、さらにWikipediaやGoogleのAPIを通じてインターネット上の情報も収集しています。これらの情報をもとに、最適な回答を生成しています。",
       icon: <Heart className="h-5 w-5 text-red-400" />
-    }
+    },
   ];
   return (
     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">

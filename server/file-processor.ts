@@ -21,8 +21,8 @@ neonConfig.webSocketConstructor = ws;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Initialize AstraDB client
-const client = new DataAPIClient("AstraCS:lzKjtBdGotrdZJoKjWBvaKpl:6725d2fee7e56a8cd43a471489cdb4948680d73dedac07082803ac457d020b04");
-const db = client.db("https://5d1385dc-512e-479e-91c2-89bd6dbb1bf6-ap-south-1.apps.astra.datastax.com");
+const client = new DataAPIClient(process.env.ASTRA_API_TOKEN);
+const db = client.db(process.env.ASTRA_DB_URL);
 
 // ✅ GOOGLE DRIVE AUTHENTICATION
 // Replace './google.json' with the path to your service account JSON key file
@@ -266,18 +266,22 @@ async function docxToImages(docxBuffer: Buffer): Promise<string[]> {
 /**
  * Process an image through GPT-4V
  */
+/**
+ * Process an image through GPT-4o with retry mechanism for handling rate limit errors
+ */
 async function analyzeImage(imagePath: string): Promise<string> {
   console.log(`🔍 Analyzing image: ${imagePath}`);
   const imageBuffer = await fs.readFile(imagePath);
   const base64Image = imageBuffer.toString("base64");
 
-  let retries = 3;
-  let delay = 2000; // Start with a 2-second delay
+  const maxRetries = 5;
+  let retries = 0;
+  let delay = 3000; // Initial delay of 3 seconds
 
-  while (retries > 0) {
+  while (retries < maxRetries) {
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
           {
             role: "user",
@@ -298,10 +302,15 @@ async function analyzeImage(imagePath: string): Promise<string> {
       return response.choices[0]?.message?.content ?? "No response";
     } catch (error: any) {
       if (error.status === 429) {
-        console.warn(`⚠️ Rate limit reached. Retrying in ${delay / 1000} seconds...`);
-        await new Promise((res) => setTimeout(res, delay));
-        delay *= 2; // Exponential backoff (2s → 4s → 8s)
-        retries--;
+        const retryAfter = error.headers?.['retry-after']
+          ? parseInt(error.headers['retry-after'], 10) * 1000
+          : delay;
+
+        console.warn(`⚠️ Rate limit reached. Retrying in ${retryAfter / 1000} seconds...`);
+        await new Promise(res => setTimeout(res, retryAfter));
+
+        delay *= 2; // Exponential backoff
+        retries++;
       } else {
         console.error("❌ Error analyzing image:", error);
         throw error;

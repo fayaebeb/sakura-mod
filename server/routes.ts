@@ -8,10 +8,10 @@ import { insertMessageSchema } from "@shared/schema";
 import { DataAPIClient } from "@datastax/astra-db-ts";
 
 // Langflow API configuration
-const LANGFLOW_API = "https://fayaebeb-langflow.hf.space/api/v1/run/8cc3616d-0e44-4bd5-9aa3-7ae57e2a2d45";
+const LANGFLOW_API = process.env.LANGFLOW_API;
 
-const client = new DataAPIClient("AstraCS:lzKjtBdGotrdZJoKjWBvaKpl:6725d2fee7e56a8cd43a471489cdb4948680d73dedac07082803ac457d020b04");
-const db = client.db("https://5d1385dc-512e-479e-91c2-89bd6dbb1bf6-ap-south-1.apps.astra.datastax.com");
+const client = new DataAPIClient(process.env.ASTRA_API_TOKEN);
+const db = client.db(process.env.ASTRA_DB_URL);
 
 function formatBotResponse(text: string): string {
   return text.replace(/\\n/g, '\n').trim();
@@ -131,9 +131,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await fetch(LANGFLOW_API, {
         method: "POST",
         headers: {
-              Authorization: "Bearer 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",
-          "Content-Type": "application/json",
-                "x-api-key": "sk-k8wKMFfgyswK_0aEJgDbFdCF8vqDCTQRIGRCNpRLymw",
+          Authorization: process.env.AUTHORIZATION_TOKEN,
+                "Content-Type": "application/json",
+                "x-api-key": process.env.X_API_KEY,
         },
         body: JSON.stringify({
           input_value: body.content,
