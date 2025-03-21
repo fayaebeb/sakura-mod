@@ -409,12 +409,12 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
         const pdfImages = await pdfToImages(file.buffer);
         tempFiles.push(...pdfImages); // Track images for cleanup
 
-        extractedTexts = await Promise.all(
-          pdfImages.map(async (imagePath, index) => {
-            console.log(`🔍 Analyzing PDF image ${index + 1}/${pdfImages.length}`);
-            return analyzeImage(imagePath);
-          })
-        );
+        extractedTexts = [];
+        for (let index = 0; index < pdfImages.length; index++) {
+          const imagePath = pdfImages[index];
+          console.log(`🔍 Analyzing PDF image ${index + 1}/${pdfImages.length}`);
+          extractedTexts.push(await analyzeImage(imagePath));
+        }
         break;
 
       case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
@@ -423,12 +423,12 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
         const pptxImages = await pptxToImages(file.buffer);
         tempFiles.push(...pptxImages); // Track images for cleanup
 
-        extractedTexts = await Promise.all(
-          pptxImages.map(async (imagePath, index) => {
-            console.log(`🔍 Analyzing PPTX image ${index + 1}/${pptxImages.length}`);
-            return analyzeImage(imagePath);
-          })
-        );
+        extractedTexts = [];
+        for (let index = 0; index < pptxImages.length; index++) {
+          const imagePath = pptxImages[index];
+          console.log(`🔍 Analyzing PPTX image ${index + 1}/${pptxImages.length}`);
+          extractedTexts.push(await analyzeImage(imagePath));
+        }
         break;
 
       case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -436,12 +436,12 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
         const docxImages = await docxToImages(file.buffer);
         tempFiles.push(...docxImages); // Track images for cleanup
 
-        extractedTexts = await Promise.all(
-          docxImages.map(async (imagePath, index) => {
-            console.log(`🔍 Analyzing DOCX image ${index + 1}/${docxImages.length}`);
-            return analyzeImage(imagePath);
-          })
-        );
+        extractedTexts = [];
+        for (let index = 0; index < docxImages.length; index++) {
+          const imagePath = docxImages[index];
+          console.log(`🔍 Analyzing DOCX image ${index + 1}/${docxImages.length}`);
+          extractedTexts.push(await analyzeImage(imagePath));
+        }
         break;
 
       case "text/plain":
@@ -482,9 +482,6 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
     }
   }
 }
-
-
-
 
 /**
  * Store extracted data in AstraDB
