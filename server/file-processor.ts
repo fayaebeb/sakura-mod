@@ -277,7 +277,7 @@ async function analyzeImage(imagePath: string): Promise<string> {
   while (retries > 0) {
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "user",
