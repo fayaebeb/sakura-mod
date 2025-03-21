@@ -282,7 +282,7 @@ async function analyzeImage(imagePath: string): Promise<string> {
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract all content and structured data from this document image in Japanese. Preserve original formatting and meaning as accurately as possible for vector storage." },
+              { type: "text", text: "summarize all content and structured data from this document image in Japanese. Preserve original text and meaning as much as possible." },
               {
                 type: "image_url",
                 image_url: {
@@ -292,7 +292,7 @@ async function analyzeImage(imagePath: string): Promise<string> {
             ],
           },
         ],
-        max_tokens: 1000,
+        max_tokens: 3000,
       });
 
       return response.choices[0]?.message?.content ?? "No response";
