@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 const CHAT_SESSION_KEY_PREFIX = "chat_session_id_user_";
 const TUTORIAL_SHOWN_KEY_PREFIX = "tutorial_shown_user_";
+const WARNING_SHOWN_KEY_PREFIX = "warning_shown_user_";
 
 const LoadingDots = () => {
   return (
@@ -82,6 +83,22 @@ export default function ChatInterface() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
+  
+  const [showWarning, setShowWarning] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const warningShownKey = `${WARNING_SHOWN_KEY_PREFIX}${user.id}`;
+    const stored = localStorage.getItem(warningShownKey);
+
+    const now = Date.now();
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+
+    if (!stored || now - parseInt(stored, 10) > SEVEN_DAYS) {
+      setShowWarning(true);
+    }
+  }, [user]);
+
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -121,6 +138,15 @@ export default function ChatInterface() {
     setShowTutorial(false);
     localStorage.setItem(tutorialShownKey, 'true');
   };
+
+  const handleCloseWarning = () => {
+    if (!user) return;
+    const warningShownKey = `${WARNING_SHOWN_KEY_PREFIX}${user.id}`;
+    const now = Date.now();
+    localStorage.setItem(warningShownKey, now.toString());
+    setShowWarning(false);
+  };
+
 
   const [sessionId, setSessionId] = useState<string>(() => {
     if (!user) return "";
@@ -396,12 +422,21 @@ export default function ChatInterface() {
         </div>
       </ScrollArea>
 
-      <div className="px-4 pb-2">
-  <div className="border-l-4 border-red-500 bg-red-50 text-red-700 px-4 py-2 text-sm rounded">
-    <strong>❗注意：</strong><br />
-    このチャットでは「こんにちは」「質問」などの不要なメッセージや、誤った情報は入力しないでください。AIの記憶に保存されてしまいます。
-  </div>
-</div>
+      {showWarning && (
+        <div className="px-4 pb-2 relative">
+          <div className="border-l-4 border-red-500 bg-red-50 text-red-700 px-4 py-2 text-sm rounded">
+            <button
+              onClick={handleCloseWarning}
+              className="absolute top-1 right-3 text-red-400 hover:text-red-600"
+              aria-label="閉じる"
+            >
+              ×
+            </button>
+            <strong>❗注意：</strong><br />
+            このチャットでは「こんにちは」「質問」などの不要なメッセージや、誤った情報は入力しないでください。AIの記憶に保存されてしまいます。
+          </div>
+        </div>
+      )}
 
 
         <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">

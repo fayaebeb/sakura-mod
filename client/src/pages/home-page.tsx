@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import ChatInterface from "@/components/chat-interface";
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
+import { FileText, ShieldAlert } from "lucide-react";
 import { useLocation } from "wouter"; // ✅ Correct router for your stack
 
 const NetworkStatus = ({ isOnline }: { isOnline: boolean }) => {
@@ -66,6 +66,17 @@ export default function HomePage() {
             <span className="hidden sm:inline text-sm font-bold text-[#b35800] bg-[#f3e1ce] px-3 py-1 rounded-lg">
               {displayName} (モデレーター)
             </span>
+
+            {/* Moderator Dashboard Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation("/moderator")}
+              className="flex items-center gap-2"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              <span className="hidden sm:inline">モデレーター</span>
+            </Button>
 
             {/* File History Button */}
             <Button

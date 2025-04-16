@@ -6,6 +6,9 @@ import multer from "multer";
 import { processFile, storeInAstraDB, deleteFileFromAstraDB } from "./file-processor";
 import { insertMessageSchema } from "@shared/schema";
 import { DataAPIClient } from "@datastax/astra-db-ts";
+import { ModeratorStorage } from "./ModeratorStorage";
+const moderatorStorage = new ModeratorStorage();
+
 
 // Langflow API configuration
 const LANGFLOW_API = process.env.LANGFLOW_API;
@@ -324,6 +327,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error deleting file:", error);
       res.status(500).json({
         message: "Failed to delete file",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Get all unique session IDs for the moderator dashboard
+  app.get("/api/moderator/sessions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const sessionIds = await moderatorStorage.getAllSessionIds();
+      res.json(sessionIds);
+    } catch (error) {
+      console.error("Error retrieving session IDs:", error);
+      res.status(500).json({
+        message: "Failed to retrieve session IDs",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Get all messages for a specific session ID
+  app.get("/api/moderator/messages/:sessionId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const sessionId = req.params.sessionId;
+      const messages = await moderatorStorage.getMessagesBySessionId(sessionId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error retrieving messages for session:", error);
+      res.status(500).json({
+        message: "Failed to retrieve messages for session",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

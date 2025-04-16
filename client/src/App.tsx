@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
 import AuthPage from "@/pages/auth-page";
 import FileHistory from "@/pages/FileHistory";
+import ModeratorDashboard from "@/pages/ModeratorDashboard";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 
@@ -14,6 +15,7 @@ function Router() {
     <Switch>
       <ProtectedRoute path="/" component={HomePage} />
       <ProtectedRoute path="/files" component={FileHistory} />
+      <ProtectedRoute path="/moderator" component={ModeratorDashboard} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
