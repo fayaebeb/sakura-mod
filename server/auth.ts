@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import rateLimit from "express-rate-limit";
 
 declare global {
   namespace Express {
@@ -29,10 +30,8 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  // Ensure SESSION_SECRET is set
   if (!process.env.SESSION_SECRET) {
-    console.warn("⚠️ No SESSION_SECRET provided, using a default secret. This is not secure for production.");
-    process.env.SESSION_SECRET = "default_secret_" + randomBytes(32).toString("hex");
+    throw new Error('SESSION_SECRET must be set in environment variables');
   }
 
   const sessionSettings: session.SessionOptions = {
@@ -41,9 +40,10 @@ export function setupAuth(app: Express) {
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
-      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
-      secure: process.env.NODE_ENV === "production",
-      sameSite: 'lax'
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      secure: true,
+      httpOnly: true,
+      sameSite: 'strict'
     }
   };
 
@@ -52,7 +52,11 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Add logging middleware for debugging auth state
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5
+  });
+
   app.use((req, res, next) => {
     console.log(`🔒 Auth Debug - Path: ${req.path}, Authenticated: ${req.isAuthenticated()}`);
     if (req.isAuthenticated()) {
@@ -61,22 +65,20 @@ export function setupAuth(app: Express) {
     next();
   });
 
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          console.log(`❌ Login failed for user: ${username}`);
-          return done(null, false);
-        }
-        console.log(`✅ Login successful for user: ${username}`);
-        return done(null, user);
-      } catch (error) {
-        console.error("❌ Error in authentication:", error);
-        return done(error);
+  passport.use(new LocalStrategy(async (username, password, done) => {
+    try {
+      const user = await storage.getUserByUsername(username);
+      if (!user || !(await comparePasswords(password, user.password))) {
+        console.log(`❌ Login failed for user: ${username}`);
+        return done(null, false);
       }
-    })
-  );
+      console.log(`✅ Login successful for user: ${username}`);
+      return done(null, user);
+    } catch (error) {
+      console.error("❌ Error in authentication:", error);
+      return done(error);
+    }
+  }));
 
   passport.serializeUser((user, done) => {
     console.log(`📦 Serializing user: ${user.username}`);
@@ -103,22 +105,19 @@ export function setupAuth(app: Express) {
     if (existingUser) {
       return res.status(400).send("Username already exists");
     }
-
     const user = await storage.createUser({
       ...req.body,
       password: await hashPassword(req.body.password),
     });
-
     req.login(user, (err) => {
       if (err) return next(err);
-      res.status(201).json(user);
+      res.status(201).json({ id: user.id, username: user.username });
     });
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+  app.post("/api/login", loginLimiter, passport.authenticate("local"), (req, res) => {
+    res.status(200).json({ id: req.user!.id, username: req.user!.username });
   });
-    
 
   app.post("/api/logout", (req, res, next) => {
     const username = req.user?.username;
@@ -135,6 +134,6 @@ export function setupAuth(app: Express) {
       return res.sendStatus(401);
     }
     console.log(`✅ User data retrieved: ${req.user?.username}`);
-    res.json(req.user);
+    res.json({ id: req.user!.id, username: req.user!.username });
   });
 }

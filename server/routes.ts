@@ -38,16 +38,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     const allowedMimeTypes = [
-      "application/pdf",
+    "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       "application/vnd.ms-powerpoint",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/plain"
+      "text/plain",
+      "text/csv",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel"
     ];
 
     if (!allowedMimeTypes.includes(req.file.mimetype)) {
       return res.status(400).json({
-        error: `Unsupported file type: ${req.file.mimetype}. Supported types: PDF, PPT, PPTX, DOCX, TXT`,
+        error: `Unsupported file type: ${req.file.mimetype}. Supported types: PDF, PPT, PPTX, DOCX, TXT, CSV, XLSX, XLS`,
       });
     }
 

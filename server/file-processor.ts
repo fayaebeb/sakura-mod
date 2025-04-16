@@ -11,6 +11,8 @@ import * as chardet from "chardet";
 import natural from "natural";
 import { google } from "googleapis";
 import { Readable } from "stream";
+import Papa from 'papaparse';
+import * as XLSX from "xlsx";
 
 const { SentenceTokenizer } = natural;
 
@@ -449,6 +451,32 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
         extractedTexts = await processTextFile(file.buffer);
         break;
 
+        case "text/csv":
+          console.log("🧾 CSV file detected. Parsing and chunking...");
+          const csvText = file.buffer.toString("utf-8");
+          const parsedCsv = Papa.parse<string[]>(csvText, { skipEmptyLines: true });
+          extractedTexts = await chunkTabularData(parsedCsv.data, file.originalname);
+          break;
+
+        case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        case "application/vnd.ms-excel":
+          console.log("📊 Excel file detected. Parsing and chunking...");
+          const workbook = XLSX.read(file.buffer, { type: "buffer" });
+          extractedTexts = [];
+
+          workbook.SheetNames.forEach(sheetName => {
+            const worksheet = workbook.Sheets[sheetName];
+            const sheetData: string[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            extractedTexts.push(...sheetData.slice(1).map((row, idx) => {
+              if (!row || row.every(cell => cell === "" || cell == null)) return "";
+              const rowText = row.map((cell, cellIdx) => 
+                `${sheetData[0]?.[cellIdx] || `Column ${cellIdx + 1}`}: ${cell}`
+              ).join(" | ");
+              return `Sheet: ${sheetName} | Row ${idx + 1} from ${file.originalname}: ${rowText}`;
+            }).filter(text => text !== ""));
+          });
+          break;
+
       default:
         console.warn(`⚠️ Unsupported file type encountered: ${file.mimetype}`);
         throw new Error(`Unsupported file type: ${file.mimetype}`);
@@ -481,6 +509,25 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
       console.log("✅ Temporary files deleted.");
     }
   }
+}
+
+
+// --- 🚩 CSV/XLSX Processing Functions Integration ---
+
+async function chunkTabularData(rows: string[][], filename: string, sheetName?: string): Promise<string[]> {
+  const chunks: string[] = [];
+  const headers = rows[0];
+
+  for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
+    if (!row || row.every(cell => cell === "" || cell == null)) continue;  // Handle empty rows
+
+    const rowText = row.map((cell, i) => `${headers?.[i] || `Column ${i + 1}`}: ${cell}`).join(" | ");
+    const prefix = sheetName ? `Sheet: ${sheetName} | ` : "";
+    chunks.push(`${prefix}Row ${rowIndex} from ${filename}: ${rowText}`);
+  }
+
+  return chunks;
 }
 
 /**

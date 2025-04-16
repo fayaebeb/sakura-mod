@@ -246,13 +246,13 @@ export default function ChatInterface() {
       });
       setFile(null);
     },
-    onError: () => {
-      toast({
-        title: "ファイルのアップロードに失敗しました",
-        description: "対応しているファイル形式（PDF、PPT、PPTX、DOCX、TXT）で再試行してください。",
-        variant: "destructive",
-      });
-      setFile(null);
+      onError: () => {
+        toast({
+          title: "ファイルのアップロードに失敗しました",
+          description: "対応しているファイル形式（PDF、PPT、PPTX、DOCX、TXT、CSV、XLSX、XLS）で再試行してください。",
+          variant: "destructive",
+        });
+        setFile(null);
     },
   });
 
@@ -269,14 +269,17 @@ export default function ChatInterface() {
       'application/vnd.openxmlformats-officedocument.presentationml.presentation', 
       'application/vnd.ms-powerpoint', 
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-      "text/plain",
-      ".txt"
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'text/csv',
+      'text/plain',
+      '.txt'
     ];
 
     if (!allowedTypes.includes(selectedFile.type)) {
       toast({
         title: "Unsupported file type",
-        description: "Please upload a PDF, PPT, PPTX DOCX or TXT file",
+        description: "Please upload a PDF, PPT, PPTX, DOCX, TXT, CSV, XLSX, or XLS file",
         variant: "destructive",
       });
       return;
@@ -393,14 +396,22 @@ export default function ChatInterface() {
         </div>
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">
-        <Input
-          type="file"
-          id="file-upload"
-          className="hidden"
-          onChange={handleFileChange}
-          accept=".pdf,.ppt,.pptx,.docx,.txt,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-        />
+      <div className="px-4 pb-2">
+  <div className="border-l-4 border-red-500 bg-red-50 text-red-700 px-4 py-2 text-sm rounded">
+    <strong>❗注意：</strong><br />
+    このチャットでは「こんにちは」「質問」などの不要なメッセージや、誤った情報は入力しないでください。AIの記憶に保存されてしまいます。
+  </div>
+</div>
+
+
+        <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">
+          <Input
+            type="file"
+            id="file-upload"
+            className="hidden"
+            onChange={handleFileChange}
+            accept=".pdf,.ppt,.pptx,.docx,.txt,.csv,.xlsx,.xls,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/plain,text/csv"
+          />
         <Button
           type="button"
           variant="outline"
