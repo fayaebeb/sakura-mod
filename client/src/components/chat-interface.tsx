@@ -436,10 +436,11 @@ export default function ChatInterface() {
               <div className="w-16 h-16 rounded-full bg-[#f8eee2] flex items-center justify-center mb-4">
                 <MessageSquare className="h-8 w-8 text-[#16213e]" />
               </div>
-              <h3 className="text-lg font-medium text-center mb-2">AIと会話を始めましょう</h3>
+              <h3 className="text-lg font-medium text-center mb-2">桜AIデータ入力パネル</h3>
               <p className="text-center text-muted-foreground text-sm max-w-md">
-                メッセージを送信するか、ファイルをアップロードして会話を開始できます。
-              </p>
+  📝テキストや🔗URLの入力、📁ファイルのアップロードができます。<br />
+  ❗注意：あいさつや誤情報などは入力しないでください。AIに記録されてしまいます。
+</p>
             </div>
           )}
           {messages.map((message) => (
