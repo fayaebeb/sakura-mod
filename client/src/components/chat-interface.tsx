@@ -467,7 +467,7 @@ export default function ChatInterface() {
               <X className="h-3 w-3" />
             </button>
             <strong className="block mb-1">❗注意：</strong>
-            このチャットでは「こんにちは」「質問」などの不要なメッセージや、誤った情報は入力しないでください。AIの記憶に保存されてしまいます。
+            このデータ入力パネルでは「こんにちは」「質問」などの不要なメッセージや、誤った情報は入力しないでください。AIの記憶に保存されてしまいます。
           </div>
         </div>
       )}
