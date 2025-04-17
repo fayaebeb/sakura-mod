@@ -7,6 +7,20 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  isAdmin: boolean("is_admin").notNull().default(true), // Set to true by default for all users
+});
+
+// ✅ **Invite Tokens Table**
+export const inviteTokens = pgTable("invite_tokens", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  createdById: integer("created_by_id")
+    .references(() => users.id),
+  usedById: integer("used_by_id")
+    .references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  usedAt: timestamp("used_at"),
+  isValid: boolean("is_valid").notNull().default(true),
 });
 
 // ✅ **Sessions Table**
@@ -56,9 +70,23 @@ export const insertUserSchema = createInsertSchema(users)
     password: true
   })
   .extend({
-    password: z.string().min(6, "パスワードは6文字以上でなければなりません")
+    password: z.string().min(6, "パスワードは6文字以上でなければなりません"),
+    inviteToken: z.string().min(1, "招待トークンが必要です").optional(),
+    isAdmin: z.boolean().default(true).optional() // All users are treated as admins by default
   });
 
+// Login schema (doesn't need invite token)
+export const loginSchema = z.object({
+  username: z.string().email("有効なメールアドレスを入力してください"),
+  password: z.string().min(1, "パスワードを入力してください"),
+});
+
+// Schema for invite tokens
+export const insertInviteTokenSchema = createInsertSchema(inviteTokens)
+  .pick({
+    token: true,
+    createdById: true,
+  });
 
 export const insertSessionSchema = createInsertSchema(sessions).pick({
   userId: true,
@@ -85,6 +113,8 @@ export const insertFileSchema = createInsertSchema(files).pick({
 // ✅ **Type Definitions**
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InviteToken = typeof inviteTokens.$inferSelect;
+export type InsertInviteToken = z.infer<typeof insertInviteTokenSchema>;
 export type Session = typeof sessions.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;

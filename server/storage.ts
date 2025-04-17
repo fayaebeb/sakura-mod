@@ -1,6 +1,12 @@
-import { users, messages, sessions, files, type User, type InsertUser, type Message, type InsertMessage, type Session, type File, type InsertFile } from "@shared/schema";
+import { 
+  users, messages, sessions, files, inviteTokens,
+  type User, type InsertUser, type Message, type InsertMessage, 
+  type Session, type File, type InsertFile, 
+  type InviteToken, type InsertInviteToken 
+} from "@shared/schema";
+import { randomBytes } from "crypto";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -23,6 +29,14 @@ export interface IStorage {
   getFilesByUserId(userId: number): Promise<File[]>;
   getAllFiles(): Promise<(File & { user: { username: string } | null })[]>;
   deleteFile(id: number): Promise<File>;
+  getAllSessionIds(): Promise<string[]>;
+  getMessagesBySessionId(sessionId: string): Promise<Message[]>;
+  // Invite token methods
+  createInviteToken(createdById: number): Promise<InviteToken>;
+  getInviteToken(token: string): Promise<InviteToken | undefined>;
+  validateInviteToken(token: string): Promise<boolean>;
+  useInviteToken(token: string, userId: number): Promise<InviteToken>;
+  getValidInviteTokens(): Promise<InviteToken[]>;
   sessionStore: session.Store;
 }
 
@@ -190,6 +204,72 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return deletedFile;
+  }
+
+  async getAllSessionIds(): Promise<string[]> {
+    const results = await db
+      .select({ sessionId: messages.sessionId })
+      .from(messages)
+      .groupBy(messages.sessionId)
+      .orderBy(messages.sessionId);
+    
+    return results.map(row => row.sessionId);
+  }
+
+  async getMessagesBySessionId(sessionId: string): Promise<Message[]> {
+    return await db
+      .select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(messages.timestamp);
+  }
+
+  // Invite token methods implementation
+  async createInviteToken(createdById: number): Promise<InviteToken> {
+    const tokenString = randomBytes(32).toString('hex');
+    const [token] = await db
+      .insert(inviteTokens)
+      .values({
+        token: tokenString,
+        createdById,
+        isValid: true,
+      })
+      .returning();
+    return token;
+  }
+
+  async getInviteToken(token: string): Promise<InviteToken | undefined> {
+    const [inviteToken] = await db
+      .select()
+      .from(inviteTokens)
+      .where(eq(inviteTokens.token, token));
+    return inviteToken;
+  }
+
+  async validateInviteToken(token: string): Promise<boolean> {
+    const inviteToken = await this.getInviteToken(token);
+    return !!inviteToken && inviteToken.isValid;
+  }
+
+  async useInviteToken(token: string, userId: number): Promise<InviteToken> {
+    const [updatedToken] = await db
+      .update(inviteTokens)
+      .set({ 
+        usedById: userId,
+        usedAt: new Date(),
+        isValid: false 
+      })
+      .where(eq(inviteTokens.token, token))
+      .returning();
+    return updatedToken;
+  }
+
+  async getValidInviteTokens(): Promise<InviteToken[]> {
+    return await db
+      .select()
+      .from(inviteTokens)
+      .where(eq(inviteTokens.isValid, true))
+      .orderBy(inviteTokens.createdAt);
   }
 }
 

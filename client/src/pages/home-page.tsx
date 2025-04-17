@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import ChatInterface from "@/components/chat-interface";
 import { useEffect, useState } from "react";
-import { FileText, ShieldAlert, LogOut, Wifi, WifiOff, Home, Settings, User } from "lucide-react";
+import { FileText, ShieldAlert, LogOut, Wifi, WifiOff, Home, Settings, User, UserPlus } from "lucide-react";
 import { useLocation } from "wouter"; // ✅ Correct router for your stack
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
@@ -52,88 +52,74 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#7D2E3A] to-[#5D1E2A]">
       {/* ヘッダーセクション with Subtle Drop Shadow */}
-      <header className="border-b bg-gradient-to-r from-[#f8eee2] to-[#f5e8d8] shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-2 flex justify-between items-center">
-          {/* Company Logo with Hover Effect */}
-          <div className="flex items-center transition-transform duration-300 hover:scale-105">
+      <header className="relative border-b bg-gradient-to-r from-[#f8eee2] to-[#f5e8d8] shadow-md sticky top-0 z-10 h-[7rem] sm:h-[8rem]">
+        <div className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 max-w-screen-xl mx-auto w-full h-full">
+
+          {/* LEFT: Pacific Logo */}
+          <div className="flex-shrink-0">
             <img 
               src="/images/pclogo.png" 
-              alt="Company Logo" 
-              className="h-5 sm:h-10 drop-shadow-sm"
+              alt="Pacific Consultants Logo"
+              className="h-5 sm:h-8"
             />
           </div>
 
-          {/* AI Brand Logo with Animation */}
-          <div className="flex items-center transition-all duration-500 hover:drop-shadow-lg">
-            <img 
-              src="/images/skmod.png" 
-              alt="桜AI ロゴ" 
-              className="h-16 sm:h-24 w-auto"
-            />
-          </div>
-
-          {/* User Controls with Improved Layout */}
-          <div className="flex items-center gap-2">
-            {/* User Badge - Enhanced for Mobile */}
-            <Badge 
-              variant="outline" 
-              className="hidden sm:flex items-center gap-1.5 bg-[#f3e1ce] border-[#e8d6c0] text-[#b35800] px-3 py-1.5 font-medium shadow-sm"
+          {/* RIGHT: Buttons */}
+          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto max-w-[70vw] sm:max-w-none">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation("/admin")}
+              className="flex items-center gap-1 sm:gap-2 bg-white/80 hover:bg-white transition-colors whitespace-nowrap px-2 sm:px-3"
             >
-              <User className="h-3.5 w-3.5" />
-              {displayName}
-              <span className="text-xs opacity-75">(モデレーター)</span>
-            </Badge>
+              <UserPlus className="h-4 w-4 text-purple-600" />
+              <span className="hidden sm:inline text-purple-800">招待管理</span>
+            </Button>
 
-            {/* Controls Container */}
-            <div className="flex items-center gap-1.5">
-              {/* Moderator Dashboard Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setLocation("/moderator")}
-                className="flex items-center gap-2 bg-white/80 hover:bg-white transition-colors"
-                title="モデレーターダッシュボード"
-              >
-                <ShieldAlert className="h-4 w-4 text-amber-600" />
-                <span className="hidden sm:inline text-amber-800">モデレーター</span>
-              </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation("/moderator")}
+              className="flex items-center gap-1 sm:gap-2 bg-white/80 hover:bg-white transition-colors whitespace-nowrap px-2 sm:px-3"
+            >
+              <ShieldAlert className="h-4 w-4 text-orange-600" />
+              <span className="hidden sm:inline text-orange-800">モデレーター</span>
+            </Button>
 
-              {/* File History Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setLocation("/files")}
-                className="flex items-center gap-2 bg-white/80 hover:bg-white transition-colors"
-                title="ファイル履歴"
-              >
-                <FileText className="h-4 w-4 text-blue-600" />
-                <span className="hidden sm:inline text-blue-800">ファイル履歴</span>
-              </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation("/files")}
+              className="flex items-center gap-1 sm:gap-2 bg-white/80 hover:bg-white transition-colors whitespace-nowrap px-2 sm:px-3"
+            >
+              <FileText className="h-4 w-4 text-blue-600" />
+              <span className="hidden sm:inline text-blue-800">ファイル履歴</span>
+            </Button>
 
-              {/* Logout Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
-                className="bg-white/90 hover:bg-white/100 hover:text-red-600 transition-colors"
-              >
-                {logoutMutation.isPending ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="animate-pulse">●</span>
-                    処理中
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>ログアウト</span>
-                  </span>
-                )}
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              className="flex items-center bg-white/90 hover:bg-white/100 transition-colors text-red-600 px-2 sm:px-3"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
+
+        {/* CENTER: Absolutely positioned Sakura logo */}
+        <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none text-center">
+          <img
+            src="/images/skmod.png"
+            alt="Sakura AI Logo"
+            className="h-[6rem] sm:h-[7rem] w-auto drop-shadow-sm"
+          />
+
+          
+        </div>
       </header>
+
 
       {/* Floating Network Status */}
       <NetworkStatus isOnline={isOnline} />
@@ -150,7 +136,7 @@ export default function HomePage() {
             <div className="px-4 py-3 bg-[#f2d9be]/70 border-b border-[#e8d6c0] flex justify-between items-center">
               <h2 className="text-[#7D2E3A] font-medium flex items-center gap-2">
                 <img src="/images/favicon.png" alt="Icon" className="w-5 h-5" />
-                桜AI データ入力インターフェース。
+                桜AIデータ入力パネル
               </h2>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="bg-white/50 text-xs font-normal">
@@ -170,7 +156,7 @@ export default function HomePage() {
       {/* Simple Footer */}
       <footer className="py-4 px-6 bg-[#471a23] text-white/70 text-xs text-center">
         <div className="container mx-auto">
-          <p>© 2025 桜AI - All rights reserved</p>
+          <p>© 2025 桜AI</p>
         </div>
       </footer>
     </div>

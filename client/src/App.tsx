@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
 import AuthPage from "@/pages/auth-page";
+import AdminPage from "@/pages/admin-page";
 import FileHistory from "@/pages/FileHistory";
 import ModeratorDashboard from "@/pages/ModeratorDashboard";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -16,6 +17,7 @@ function Router() {
       <ProtectedRoute path="/" component={HomePage} />
       <ProtectedRoute path="/files" component={FileHistory} />
       <ProtectedRoute path="/moderator" component={ModeratorDashboard} />
+      <ProtectedRoute path="/admin" component={AdminPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
