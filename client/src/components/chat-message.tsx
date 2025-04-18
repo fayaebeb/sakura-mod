@@ -36,8 +36,11 @@ export default function ChatMessage({ message }: { message: MessageWithBot }) {
       return apiRequest("DELETE", `/api/messages/${messageId}`);
     },
     onSuccess: () => {
+      // Extract the session ID from the current URL or component props
       const sessionIdFromURL = window.location.pathname.split('/').pop() || '';
+      // Invalidate all queries related to messages for proper cache updates
       queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      // Also invalidate specific session query if available
       if (sessionIdFromURL) {
         queryClient.invalidateQueries({ queryKey: ["/api/messages", sessionIdFromURL] });
       }
@@ -63,24 +66,15 @@ export default function ChatMessage({ message }: { message: MessageWithBot }) {
           "justify-end": !message.isBot,
         })}
       >
-        <Avatar className={cn({ "order-2": !message.isBot })}>
-          {message.isBot ? (
-            <img 
-              src="/images/sava.jpg" 
-              alt="Sakura AI" 
+        {message.isBot && (
+          <Avatar>
+            <img
+              src="/images/sava.jpg"
+              alt="sakura AI"
               className="w-full h-full object-cover rounded-full border border-pink-400 shadow-md"
             />
-          ) : (
-            <div
-              className={cn("w-full h-full flex items-center justify-center text-xs font-semibold rounded-full", {
-                "bg-primary text-primary-foreground": message.isBot,
-                "bg-pink-300 text-white": !message.isBot,
-              })}
-            >
-              モッド
-            </div>
-          )}
-        </Avatar>
+          </Avatar>
+        )}
 
         <Card
           className={cn("px-4 py-3 max-w-[80%] rounded-lg relative", {
@@ -88,7 +82,7 @@ export default function ChatMessage({ message }: { message: MessageWithBot }) {
             "bg-gray-100 text-black": message.isBot,
           })}
         >
-          <div className="prose break-words">
+          <div className="break-words text-black">
             {message.isBot ? (
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {message.content}
@@ -98,43 +92,52 @@ export default function ChatMessage({ message }: { message: MessageWithBot }) {
             )}
           </div>
 
-          {message.isBot && (
-            <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <AlertDialog>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                      >
-                        <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  </TooltipTrigger>
-                </Tooltip>
-
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>メッセージを削除</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      本当にこのメッセージを削除しますか？この操作は元に戻せません。
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => deleteMessage.mutate(message.id)}
-                      className="bg-red-500 hover:bg-red-600"
+          <div 
+            className={cn(
+              "absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity",
+              {
+                "opacity-40 hover:opacity-100": message.isBot,
+              }
+            )}
+          >
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className={cn(
+                        "h-8 w-8", 
+                        { "animate-pulse hover:animate-none": message.isBot }
+                      )}
                     >
-                      削除
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          )}
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+
+              </Tooltip>
+
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>メッセージを削除</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    本当にこのメッセージを削除しますか？この操作は元に戻せません。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteMessage.mutate(message.id)}
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    削除
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </Card>
       </div>
     </TooltipProvider>
