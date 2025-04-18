@@ -1,5 +1,6 @@
 import { DataAPIClient } from "@datastax/astra-db-ts";
 import { promises as fs } from "fs";
+import { writeFileSync } from "fs";
 import ws from "ws";
 import { neonConfig } from "@neondatabase/serverless";
 import { OpenAI } from "openai";
@@ -13,6 +14,7 @@ import { google } from "googleapis";
 import { Readable } from "stream";
 import Papa from 'papaparse';
 import * as XLSX from "xlsx";
+import { fileURLToPath } from "url";
 
 const { SentenceTokenizer } = natural;
 
@@ -27,21 +29,21 @@ const client = new DataAPIClient(process.env.ASTRA_API_TOKEN);
 const db = client.db(process.env.ASTRA_DB_URL);
 
 // ✅ GOOGLE DRIVE AUTHENTICATION
-// Replace './google.json' with the path to your service account JSON key file
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Write the Google service account JSON from env to file
+const keyPath = path.join(__dirname, "google-service-account.json");
+
+if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+  writeFileSync(keyPath, process.env.GOOGLE_SERVICE_ACCOUNT_JSON, "utf8");
+} else {
+  console.warn("⚠️ GOOGLE_SERVICE_ACCOUNT_JSON not set — Google Drive upload won't work.");
+}
+
+// Authenticate using the key file
 const auth = new google.auth.GoogleAuth({
-  credentials: {
-    type: "service_account",
-    project_id: process.env.GOOGLE_PROJECT_ID,
-    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-    private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"), // Fix newlines
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    auth_uri: process.env.GOOGLE_AUTH_URI,
-    token_uri: process.env.GOOGLE_TOKEN_URI,
-    auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_CERT_URL,
-    client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
-    universe_domain: process.env.GOOGLE_UNIVERSE_DOMAIN,
-  },
+  keyFile: keyPath,
   scopes: ["https://www.googleapis.com/auth/drive"],
 });
 
