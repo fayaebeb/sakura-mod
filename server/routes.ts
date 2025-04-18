@@ -11,10 +11,10 @@ const moderatorStorage = new ModeratorStorage();
 
 
 // Langflow API configuration
-const LANGFLOW_API = process.env.LANGFLOW_API;
+const LANGFLOW_API = process.env.LANGFLOW_API || '';
 
-const client = new DataAPIClient(process.env.ASTRA_API_TOKEN);
-const db = client.db(process.env.ASTRA_DB_URL);
+const client = new DataAPIClient(process.env.ASTRA_API_TOKEN || '');
+const db = client.db(process.env.ASTRA_DB_URL || '');
 
 function formatBotResponse(text: string): string {
   return text.replace(/\\n/g, '\n').trim();
@@ -23,7 +23,7 @@ function formatBotResponse(text: string): string {
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 20 * 1024 * 1024, // 20MB limit
+    fileSize: 1 * 1024 * 1024 * 1024, // 1GB limit
   },
   fileFilter: (req, file, cb) => {
     file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
@@ -36,12 +36,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
   // File Upload Endpoint
-  app.post("/api/upload", upload.single('file'), async (req, res) => {
+  app.post("/api/upload", upload.array('files', 10), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
 
     const allowedMimeTypes = [
-    "application/pdf",
+      "application/pdf",
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       "application/vnd.ms-powerpoint",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -50,66 +54,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "application/vnd.ms-excel"
     ];
-
-    if (!allowedMimeTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({
-        error: `Unsupported file type: ${req.file.mimetype}. Supported types: PDF, PPT, PPTX, DOCX, TXT, CSV, XLSX, XLS`,
-      });
-    }
-
+    
     const userId = req.user!.id;
     const { sessionId } = req.body;
-
-    try {
-      const fileRecord = await storage.createFile(userId, {
-        filename: req.file.originalname,
-        originalName: req.file.originalname,
-        contentType: req.file.mimetype,
-        size: req.file.size,
-        sessionId,
-        status: "processing",
-      });
-
-      processFile(req.file, sessionId)
-        .then(async () => {
-          try {
-            await storage.updateFileStatus(fileRecord.id, "completed");
-            await storage.createMessage(userId, {
-              content: `File processed successfully: ${req.file!.originalname}`,
-              isBot: true,
-              sessionId,
-              fileId: fileRecord.id,
-            });
-          } catch (storeError) {
-            console.error("Error storing in AstraDB:", storeError);
-            await storage.updateFileStatus(fileRecord.id, "completed");
-            await storage.createMessage(userId, {
-              content: `File processed but storage in AstraDB failed: ${req.file!.originalname}`,
-              isBot: true,
-              sessionId,
-              fileId: fileRecord.id,
-            });
-          }
-        })
-        .catch(async (error) => {
-          console.error("Error processing file:", error);
-          await storage.updateFileStatus(fileRecord.id, "error");
-          await storage.createMessage(userId, {
-            content: `Error processing file ${req.file!.originalname}: ${error.message || "Unknown error"}`,
-            isBot: true,
-            sessionId,
-            fileId: fileRecord.id,
-          });
+    
+    // Process each file and track results
+    const results = [];
+    
+    for (const file of files) {
+      // Validate file type
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        results.push({
+          filename: file.originalname,
+          success: false,
+          error: `Unsupported file type: ${file.mimetype}`
         });
-
-      res.json(fileRecord);
-    } catch (error) {
-      console.error("Error handling file upload:", error);
-      res.status(500).json({
-        message: "Failed to process file upload",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+        continue;
+      }
+      
+      try {
+        // Create file record
+        const fileRecord = await storage.createFile(userId, {
+          filename: file.originalname,
+          originalName: file.originalname,
+          contentType: file.mimetype,
+          size: file.size,
+          sessionId,
+          status: "processing",
+        });
+        
+        results.push({
+          filename: file.originalname,
+          success: true,
+          fileId: fileRecord.id
+        });
+        
+        // Process file asynchronously
+        processFile(file, sessionId)
+          .then(async () => {
+            try {
+              await storage.updateFileStatus(fileRecord.id, "completed");
+              await storage.createMessage(userId, {
+                content: `File processed successfully: ${file.originalname}`,
+                isBot: true,
+                sessionId,
+                fileId: fileRecord.id,
+              });
+            } catch (storeError) {
+              console.error("Error storing in AstraDB:", storeError);
+              await storage.updateFileStatus(fileRecord.id, "completed");
+              await storage.createMessage(userId, {
+                content: `File processed but storage in AstraDB failed: ${file.originalname}`,
+                isBot: true,
+                sessionId,
+                fileId: fileRecord.id,
+              });
+            }
+          })
+          .catch(async (error) => {
+            console.error("Error processing file:", error);
+            await storage.updateFileStatus(fileRecord.id, "error");
+            await storage.createMessage(userId, {
+              content: `Error processing file ${file.originalname}: ${error.message || "Unknown error"}`,
+              isBot: true,
+              sessionId,
+              fileId: fileRecord.id,
+            });
+          });
+      } catch (error) {
+        console.error("Error creating file record:", error);
+        results.push({
+          filename: file.originalname,
+          success: false,
+          error: "Failed to create file record"
+        });
+      }
     }
+    
+    // Return the results of all file uploads
+    res.json({ files: results });
   });
 
   // Chat API Route
@@ -137,9 +160,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await fetch(LANGFLOW_API, {
         method: "POST",
         headers: {
-          Authorization: process.env.AUTHORIZATION_TOKEN,
+          Authorization: process.env.AUTHORIZATION_TOKEN || '',
                 "Content-Type": "application/json",
-                "x-api-key": process.env.X_API_KEY,
+                "x-api-key": process.env.X_API_KEY || '',
         },
         body: JSON.stringify({
           input_value: body.content,
