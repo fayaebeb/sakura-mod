@@ -246,34 +246,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Message not found" });
       }
 
-      // Only allow deletion of bot messages
-      if (!message.isBot) {
-        return res.status(403).json({ error: "Can only delete bot messages" });
-      }
-
       // Check if this message belongs to the authenticated user
       if (message.userId !== req.user!.id) {
         return res.status(403).json({ error: "Permission denied" });
       }
 
-      // Extract MSGID from content using the correct format
-      const msgIdMatch = message.content.match(/MSGID:\s*([a-f0-9-]+)/i);
-      console.log("Extracted MSGID:", msgIdMatch ? msgIdMatch[1] : "Not found");
+      // If it's a bot message, check for AstraDB content to delete
+      if (message.isBot) {
+        // Extract MSGID from content using the correct format
+        const msgIdMatch = message.content.match(/MSGID:\s*([a-f0-9-]+)/i);
+        console.log("Extracted MSGID:", msgIdMatch ? msgIdMatch[1] : "Not found");
 
-      if (msgIdMatch) {
-        const astraMessageId = msgIdMatch[1];
-        try {
-          // Delete from AstraDB with proper metadata field
+        if (msgIdMatch) {
+          const astraMessageId = msgIdMatch[1];
+          try {
+            // Delete from AstraDB with proper metadata field
           await db.collection("files").deleteMany({
-            "metadata.msgid": astraMessageId
-          });
-          console.log(`Successfully deleted message with MSGID ${astraMessageId} from AstraDB`);
-        } catch (astraError) {
-          console.error("Error deleting from AstraDB:", astraError);
-          // Continue with local deletion even if AstraDB deletion fails
+              "metadata.msgid": astraMessageId
+            });
+            console.log(`Successfully deleted message with MSGID ${astraMessageId} from AstraDB`);
+          } catch (astraError) {
+            console.error("Error deleting from AstraDB:", astraError);
+            // Continue with local deletion even if AstraDB deletion fails
+          }
+        } else {
+          console.log("No MSGID found in message content:", message.content);
         }
-      } else {
-        console.log("No MSGID found in message content:", message.content);
       }
 
       // Delete from local database
