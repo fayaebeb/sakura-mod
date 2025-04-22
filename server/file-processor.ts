@@ -267,9 +267,7 @@ async function docxToImages(docxBuffer: Buffer): Promise<string[]> {
   }
 }
 
-/**
- * Process an image through GPT-4V
- */
+
 /**
  * Process an image through GPT-4o with retry mechanism for handling rate limit errors
  */
@@ -278,9 +276,19 @@ async function analyzeImage(imagePath: string): Promise<string> {
   const imageBuffer = await fs.readFile(imagePath);
   const base64Image = imageBuffer.toString("base64");
 
+  const optimizedPrompt = `
+Analyze the image carefully and extract:
+
+- All textual content exactly as presented.
+- Detailed descriptions in Japanese of all visual elements (charts, graphs, diagrams, tables), clearly noting labels, axes, data points, units, connections, and flow.
+- Preserve original formatting and structure exactly.
+
+Output only clean, structured content optimized for embedding in a vector database. Do not summarize, interpret, or add commentary.
+`;
+
   const maxRetries = 3;
   let retries = 0;
-  let delay = 60000; // Initial delay of 3 seconds
+  let delay = 60000; // Initial delay of 60 seconds
 
   while (retries < maxRetries) {
     try {
@@ -290,7 +298,7 @@ async function analyzeImage(imagePath: string): Promise<string> {
           {
             role: "user",
             content: [
-              { type: "text", text: "summarize all content and structured data from this document image in Japanese. Preserve original text and meaning as much as possible." },
+              { type: "text", text: optimizedPrompt },
               {
                 type: "image_url",
                 image_url: {
@@ -301,6 +309,7 @@ async function analyzeImage(imagePath: string): Promise<string> {
           },
         ],
         max_tokens: 3000,
+        temperature: 0, // Recommended for deterministic output
       });
 
       return response.choices[0]?.message?.content ?? "No response";
@@ -324,6 +333,7 @@ async function analyzeImage(imagePath: string): Promise<string> {
 
   throw new Error("Failed to analyze image after multiple attempts due to rate limits.");
 }
+
 
 
 /**
