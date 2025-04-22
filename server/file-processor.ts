@@ -309,7 +309,6 @@ Output only clean, structured content optimized for embedding in a vector databa
           },
         ],
         max_tokens: 3000,
-        temperature: 0, // Recommended for deterministic output
       });
 
       return response.choices[0]?.message?.content ?? "No response";
