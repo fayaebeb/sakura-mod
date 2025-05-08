@@ -179,16 +179,29 @@ export default function ModeratorDashboard() {
 
                     <Button
                       onClick={() => setLocation("/feedback")}
-                      className="flex items-center gap-2 px-4 py-2 text-sm rounded-full bg-primary text-white font-semibold shadow-md transition-all duration-300 hover:bg-primary/90 hover:shadow-lg"
+                      className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 shadow-lg transition-all duration-300 hover:opacity-90"
                     >
-                      <ClipboardList className="h-4 w-4 text-white" />
+                      <ClipboardList className="h-5 w-5 text-white" />
                       <span>フィードバックを管理</span>
                     </Button>
+
 
                   </div>
 
                   {/* Mobile: Enhanced Dropdown Menu */}
-                  <div className="md:hidden absolute right-2 top-2">
+                  {/* Mobile: Back Button + Dropdown Menu on same row */}
+                  <div className="md:hidden flex justify-between items-center w-full px-2 absolute top-2 left-0 right-0">
+                    {/* Mobile Back Button */}
+                    <Button
+                      variant="ghost"
+                      onClick={() => setLocation("/")}
+                      className="flex items-center gap-1 px-3 py-2 text-sm rounded-full bg-white/90 hover:bg-white border border-[#f5cfd4] hover:shadow-md transition-all duration-300"
+                    >
+                      <ArrowLeft className="h-4 w-4 text-primary" />
+                      <span className="text-primary">戻る</span>
+                    </Button>
+
+                    {/* Mobile Dropdown Menu */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="icon" className="rounded-full bg-white/90 hover:bg-white border border-[#f5cfd4] hover:shadow-md transition-all duration-300">
@@ -218,6 +231,7 @@ export default function ModeratorDashboard() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
+
                 </div>
 
                 {/* Enhanced Dashboard Title */}

@@ -246,33 +246,34 @@ export default function フィードバックPage() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-        <Tabs defaultValue="feedback" className="w-full">
-          <div className={`${isMobile ? "flex flex-col gap-3" : "flex justify-between items-center"} mb-4`}>
+            <div className="bg-gradient-to-br from-[#fff1f2] via-[#ffeae5] to-[#fff4e6] min-h-screen">
+              <div className="container mx-auto p-4">
+                <Tabs defaultValue="feedback" className="w-full">
+                  <div className={`${isMobile ? "flex flex-col gap-3" : "flex justify-between items-center"} mb-4`}>
 
-            {/* Mobile-only row: ダッシュボードに戻る + 更新 */}
-            {isMobile && (
-              <div className="flex justify-between items-center w-full">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setLocation("/moderator")}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  ダッシュボードに戻る
-                </Button>
+                    {/* Mobile-only row: ダッシュボードに戻る + 更新 */}
+                    {isMobile && (
+                      <div className="flex justify-between items-center w-full">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setLocation("/moderator")}
+                        >
+                          <ArrowLeft className="h-4 w-4 mr-2" />
+                          ダッシュボードに戻る
+                        </Button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefresh}
-                  className="sm:hidden"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  更新
-                </Button>
-              </div>
-            )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRefresh}
+                          className="sm:hidden"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          更新
+                        </Button>
+                      </div>
+                    )}
 
             {/* Desktop-only: ダッシュボードに戻る */}
             {!isMobile && (
@@ -287,7 +288,11 @@ export default function フィードバックPage() {
             )}
 
             {/* Tabs */}
-            <TabsList className={isMobile ? "w-full" : ""}>
+              <TabsList
+                className={`rounded-md border bg-white/60 backdrop-blur-sm shadow-sm ${
+                  isMobile ? "w-full" : ""
+                }`}
+              >
               <TabsTrigger value="feedback" className={isMobile ? "flex-1" : ""}>
                 <MessageSquare className="h-4 w-4 mr-2" />
                 フィードバック
@@ -313,14 +318,14 @@ export default function フィードバックPage() {
           </div>
 
 
-        <TabsContent value="feedback">
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-2">
-              <div>
-                <CardTitle>ユーザーフィードバック</CardTitle>
-                <CardDescription className="hidden sm:block">
-                  ユーザーからの評価とコメントを表示・分析します
-                </CardDescription>
+                <TabsContent value="feedback">
+                  <Card className="border shadow-sm bg-white/70 backdrop-blur-sm">
+                    <CardHeader className="pb-2">
+                      <div>
+                        <CardTitle>ユーザーフィードバック</CardTitle>
+                        <CardDescription className="hidden sm:block">
+                          ユーザーからの評価とコメントを表示・分析します
+                        </CardDescription>
               </div>
 
               <div className="mt-4 flex flex-col gap-4">
@@ -371,8 +376,8 @@ export default function フィードバックPage() {
               </div>
             </CardHeader>
 
-            <CardContent>
-              <ScrollArea className={isMobile ? "h-[400px]" : "h-[600px]"}>
+                <CardContent className="bg-white/50 backdrop-blur-sm rounded-md">
+                  <ScrollArea className={isMobile ? "h-[400px]" : "h-[600px]"}>
                 {filteredByOptions.length > 0 ? (
                   <div className="space-y-4">
                     {filteredByOptions.map((feedback) => (
@@ -486,13 +491,13 @@ export default function フィードバックPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="analytics">
-          <Card>
-            <CardHeader>
-              <CardTitle>フィードバック分析</CardTitle>
-              <CardDescription>
-                ユーザーフィードバックと評価の統計概要
-              </CardDescription>
+              <TabsContent value="analytics">
+                <Card className="bg-white/70 backdrop-blur-sm shadow-sm border">
+                  <CardHeader>
+                    <CardTitle>フィードバック分析</CardTitle>
+                    <CardDescription>
+                      ユーザーフィードバックと評価の統計概要
+                    </CardDescription>
             </CardHeader>
 
             <CardContent>
@@ -620,5 +625,6 @@ export default function フィードバックPage() {
         </TabsContent>
       </Tabs>
     </div>
+              </div>
   );
 }
