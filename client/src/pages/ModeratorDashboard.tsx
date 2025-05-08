@@ -11,18 +11,37 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Message } from "@shared/schema";
-import { ArrowLeft, UserIcon, SearchIcon, MessageSquare, Users, Shield } from "lucide-react";
+import { Message } from "@shared/moderatorSchema";
+import { ArrowLeft, UserIcon, SearchIcon, MessageSquare, Users, Shield, Filter, Tag, ClipboardList, Menu, Home } from "lucide-react";
 import { useLocation } from "wouter";
 import ChatMsg from "@/components/chat-msg";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRef } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+// Category options
+const CATEGORIES = {
+  ALL: "すべて",
+  ADMINISTRATIVE: "行政",
+  PRIVATE: "民間",
+  SELF: "自分"
+};
+
+type CategoryType = keyof typeof CATEGORIES | "ALL";
 
 export default function ModeratorDashboard() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType>("ALL");
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
   const isMobile = useIsMobile();
@@ -122,87 +141,133 @@ export default function ModeratorDashboard() {
   };
 
 
+  // Filter sessions by search term
   const filteredSessions = sessionIds?.filter((id: string) =>
     id.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
+  
+  // Filter messages by selected category
+  const filteredMessages = messages?.filter((message: Message) => {
+    if (selectedCategory === "ALL") return true;
+    
+    // For bot messages or messages without category, only show when "ALL" is selected
+    if (!message.category) return false;
+    
+    return message.category === selectedCategory;
+  });
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100">
-      <div className="container mx-auto px-4 py-6">
-        {/* Header Section with Navigation */}
-        <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="outline"
-            onClick={() => setLocation("/")}
-            className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg shadow-sm hover:shadow transition-all duration-200"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>ホームに戻る</span>
-          </Button>
-          
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="px-3 py-1 text-sm font-medium">
-              <Shield className="w-4 h-4 mr-1" />
-              モデレーター専用
-            </Badge>
-          </div>
-        </div>
+        <div className="min-h-screen bg-gradient-to-br from-[#fff1f2] via-[#ffeae5] to-[#fff4e6]">
+              <div className="container mx-auto px-4 py-6">
+                {/* Enhanced Header Section with Navigation */}
+                <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 bg-gradient-to-r from-[#ffe9ec] via-[#ffe0d3] to-transparent p-4 rounded-xl shadow-sm">
+                  {/* Back Button with Hover Effect */}
+                  <Button
+                    variant="ghost"
+                    onClick={() => setLocation("/")}
+                    className="hidden md:flex items-center gap-2 px-4 py-2 text-sm rounded-full bg-white/80 hover:bg-white hover:shadow-md transition-all duration-300 border border-[#f5cfd4]"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-primary" />
+                    <span className="font-medium">ホームに戻る</span>
+                  </Button>
 
-        {/* Dashboard Title */}
-        <div
-          className="
-            flex flex-col 
-            md:flex-row md:items-center 
-            justify-between mb-8 
-            w-full 
-            overflow-x-hidden
-          "
-        >
-          <h1
-            className="
-              /* fluid font size: from 1.5rem up to 1.875rem (=text-3xl) */
-              text-[clamp(1.5rem,5vw,1.875rem)] md:text-3xl 
+                  {/* Desktop: Enhanced Navigation Buttons */}
+                  <div className="hidden md:flex items-center gap-3">
+                    <Badge variant="outline" className="px-3 py-1.5 text-sm font-medium inline-flex items-center bg-[#fff4f5]/80 border border-[#f5cfd4]">
+                      <Shield className="w-4 h-4 mr-1.5 text-primary" />
+                      モデレーター専用
+                    </Badge>
 
-              font-bold 
-              flex items-center gap-2 
+                    <Button
+                      onClick={() => setLocation("/feedback")}
+                      className="flex items-center gap-2 px-4 py-2 text-sm rounded-full bg-primary text-white font-semibold shadow-md transition-all duration-300 hover:bg-primary/90 hover:shadow-lg"
+                    >
+                      <ClipboardList className="h-4 w-4 text-white" />
+                      <span>フィードバックを管理</span>
+                    </Button>
 
-              /* on md+ keep title on one line */
-              whitespace-nowrap 
-              /* ensure it can shrink as needed in flex */
-              flex-shrink 
-            "
-          >
-            <Shield className="h-7 w-7 text-primary shrink-0" />
-            モデレーターダッシュボード
-          </h1>
+                  </div>
 
-          <div
-            className="
-              flex items-center 
-              bg-muted/50 backdrop-blur-sm 
-              px-4 py-2 rounded-lg shadow-sm 
+                  {/* Mobile: Enhanced Dropdown Menu */}
+                  <div className="md:hidden absolute right-2 top-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" className="rounded-full bg-white/90 hover:bg-white border border-[#f5cfd4] hover:shadow-md transition-all duration-300">
+                          <Menu className="w-5 h-5 text-primary" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-lg border border-[#f5cfd4]">
+                        <DropdownMenuLabel className="flex items-center gap-2 text-primary">
+                          <Shield className="w-4 h-4" />
+                          モデレーターメニュー
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="gap-2 rounded-lg hover:bg-primary/10 cursor-pointer my-1 p-2"
+                          onClick={() => setLocation("/")}
+                        >
+                          <Home className="w-4 h-4 text-primary" />
+                          ホームに戻る
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="gap-2 rounded-lg hover:bg-primary/10 cursor-pointer my-1 p-2"
+                          onClick={() => setLocation("/feedback")}
+                        >
+                          <ClipboardList className="w-4 h-4 text-primary" />
+                          フィードバックを管理
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
 
-              /* keep info block its natural size */
-              shrink-0
-            "
-          >
-            <Users className="h-5 w-5 mr-2 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">
-              {filteredSessions?.length || 0} ユーザー
-            </span>
-            <span className="mx-2 text-muted-foreground">•</span>
-            <MessageSquare className="h-5 w-5 mr-2 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">
-              {messages?.length || 0} メッセージ
-            </span>
-          </div>
-        </div>
+                {/* Enhanced Dashboard Title */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 w-full overflow-hidden">
+                  <div className="flex items-center">
+                    <div className="relative mr-4">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-[#f7bfc6] to-[#fddde6] rounded-full blur-sm opacity-70"></div>
+                      <div className="relative bg-[#fff4f5] p-2 rounded-full shadow-md">
+                        <Shield className="h-8 w-8 text-[#c55a6a]" />
+                      </div>
+                    </div>
+                    <div>
+                      <h1 className="text-[clamp(1.5rem,5vw,2rem)] font-bold text-[#b35a68] flex items-center gap-2 whitespace-nowrap">
+                        モデレーターダッシュボード
+                      </h1>
+                      <p className="text-sm text-[#b56a78] mt-1 hidden md:block">
+                        モデレーターコントロールパネル・メッセージの管理
+                      </p>
+                    </div>
+                  </div>
 
-
+                  <div className="flex mt-4 md:mt-0 items-center bg-white border border-[#f5cfd4] px-4 py-3 rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
+                    <div className="flex items-center mr-4">
+                      <div className="p-1.5 bg-primary/10 rounded-full mr-2">
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <span className="text-xs text-[#b56a78] block">ユーザー</span>
+                        <span className="text-base font-semibold">{filteredSessions?.length || 0}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="h-10 w-[1px] bg-muted mx-2"></div>
+                    
+                    <div className="flex items-center">
+                      <div className="p-1.5 bg-primary/10 rounded-full mr-2">
+                        <MessageSquare className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <span className="text-xs text-[#b56a78] block">メッセージ</span>
+                        <span className="text-base font-semibold">{messages?.length || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+             
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* User List */}
           <Card className="md:col-span-4 border-0 shadow-md">
-            <CardHeader className="bg-muted/30 border-b">
+            <CardHeader className="bg-[#ffe9ec]/30 border-b">
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 ユーザー一覧
@@ -211,7 +276,7 @@ export default function ModeratorDashboard() {
             </CardHeader>
             <CardContent className="p-4">
               <div className="relative mb-4">
-                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#b56a78]" />
                 <Input
                   type="text"
                   placeholder="ユーザーを検索..."
@@ -224,7 +289,7 @@ export default function ModeratorDashboard() {
                 <div className="flex justify-center items-center p-8">
                   <div className="animate-pulse flex flex-col items-center">
                     <Users className="h-8 w-8 text-muted mb-2" />
-                    <p className="text-muted-foreground">ユーザーを読み込み中...</p>
+                    <p className="text-[#b56a78]">ユーザーを読み込み中...</p>
                   </div>
                 </div>
               ) : filteredSessions && filteredSessions.length > 0 ? (
@@ -236,7 +301,7 @@ export default function ModeratorDashboard() {
                         variant={selectedSessionId === sessionId ? "secondary" : "ghost"}
                         className={`w-full justify-start text-left rounded-lg transition-all ${
                           selectedSessionId === sessionId 
-                            ? "bg-primary/10 border border-primary/20 shadow-sm" 
+                            ? "bg-primary/10 border border-[#f5cfd4] shadow-sm" 
                             : "hover:bg-muted"
                         }`}
                         onClick={() => setSelectedSessionId(sessionId)}
@@ -251,14 +316,14 @@ export default function ModeratorDashboard() {
                 </ScrollArea>
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed rounded-lg">
-                  <Users className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">ユーザーが見つかりませんでした</p>
+                  <Users className="h-8 w-8 text-[#b56a78] mb-2" />
+                  <p className="text-[#b56a78]">ユーザーが見つかりませんでした</p>
                 </div>
               )}
             </CardContent>
             {filteredSessions && filteredSessions.length > 0 && (
-              <CardFooter className="bg-muted/30 border-t px-4 py-1">
-                <p className="text-xs text-muted-foreground w-full text-center">
+              <CardFooter className="bg-[#ffe9ec]/30 border-t px-4 py-1">
+                <p className="text-xs text-[#b56a78] w-full text-center">
                   {filteredSessions.length}人のユーザーが見つかりました
                 </p>
               </CardFooter>
@@ -266,32 +331,60 @@ export default function ModeratorDashboard() {
           </Card>
 
           <Card className="md:col-span-8 border-0 shadow-md">
-            <CardHeader className="bg-muted/30 border-b">
+            <CardHeader className="bg-[#ffe9ec]/30 border-b">
               {selectedSessionId ? (
-      <CardTitle className="flex items-center gap-2 flex-nowrap overflow-x-auto">
-        <MessageSquare className="h-5 w-5 shrink-0" />
+                <>
+                  <CardTitle className="flex items-center gap-2 flex-nowrap overflow-x-auto">
+                    <MessageSquare className="h-5 w-5 shrink-0 text-[#c55a6a]" />
 
-        <span className="whitespace-nowrap shrink-0">チャット履歴:</span>
+                    <span className="whitespace-nowrap shrink-0">チャット履歴:</span>
 
-        <Badge
-          variant="secondary"
-          className="ml-2 px-3 py-1 text-base h-auto leading-tight flex items-center gap-1 whitespace-nowrap shrink-0"
-        >
-          <UserIcon className="w-5 h-5" />
-          <span className="text-base">{selectedSessionId}</span>
-        </Badge>
+                    <Badge
+                      variant="secondary"
+                      className="ml-2 px-3 py-1 text-base h-auto leading-tight flex items-center gap-1 whitespace-nowrap shrink-0 bg-[#ffe9ec] text-[#c55a6a] border border-[#f5cfd4]"
+                    >
+                      <UserIcon className="w-5 h-5 text-[#c55a6a]" />
+                      <span className="text-base">{selectedSessionId}</span>
+                    </Badge>
 
 
-        {messages && (
-          <Badge
-            variant="outline"
-            className="ml-auto px-2 py-0 text-xs whitespace-nowrap shrink-0"
-          >
-            {messages.length} メッセージ
-          </Badge>
-        )}
-      </CardTitle>
-
+                    {filteredMessages && (
+                      <Badge
+                        variant="outline"
+                        className="ml-auto px-2 py-0 text-xs whitespace-nowrap shrink-0"
+                      >
+                        {filteredMessages.length} メッセージ
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  
+                  {/* Category Filter Buttons */}
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <div className="flex items-center mr-1">
+                      <Filter className="h-4 w-4 mr-1 text-[#b56a78]" />
+                      <span className="text-xs text-[#b56a78]">カテゴリー:</span>
+                    </div>
+                    
+                    {(Object.keys(CATEGORIES) as CategoryType[]).map((cat) => (
+                      <Badge
+                        key={cat}
+                        variant={selectedCategory === cat ? 
+                          (cat === "ALL" ? "default" : 
+                           cat === "ADMINISTRATIVE" ? "destructive" : 
+                           cat === "PRIVATE" ? "secondary" : "default") 
+                          : "outline"
+                        }
+                        className={`px-2 py-1 cursor-pointer transition-all hover:shadow ${
+                          selectedCategory === cat ? 'ring-1 ring-primary/30' : ''
+                        }`}
+                        onClick={() => setSelectedCategory(cat)}
+                      >
+                        <Tag className="h-3 w-3 mr-1" />
+                        {CATEGORIES[cat]}
+                      </Badge>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
@@ -308,21 +401,21 @@ export default function ModeratorDashboard() {
             <CardContent className="p-4 h-[calc(100vh-200px)]">
               {!selectedSessionId ? (
                 <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-muted-foreground mb-2">チャット履歴を表示するには、ユーザーを選択してください</p>
+                  <MessageSquare className="h-12 w-12 text-[#c8828d]/50 mb-4" />
+                  <p className="text-[#b56a78] mb-2">チャット履歴を表示するには、ユーザーを選択してください</p>
                   <Badge variant="outline" className="mt-2">左側のユーザー一覧から選択</Badge>
                 </div>
               ) : isLoadingMessages ? (
                 <div className="flex justify-center items-center p-8 h-full">
                   <div className="animate-pulse flex flex-col items-center">
                     <MessageSquare className="h-8 w-8 text-muted mb-2" />
-                    <p className="text-muted-foreground">メッセージを読み込み中...</p>
+                    <p className="text-[#b56a78]">メッセージを読み込み中...</p>
                   </div>
                 </div>
-              ) : messages && messages.length > 0 ? (
+              ) : filteredMessages && filteredMessages.length > 0 ? (
                 <ScrollArea className="h-full pr-2">
                   <div className="space-y-4">
-                    {messages.map((message: Message) => (
+                    {filteredMessages.map((message: Message) => (
                       <div key={message.id} className="group relative">
                         <ChatMsg message={message} />
                         <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -331,17 +424,36 @@ export default function ModeratorDashboard() {
                     <div ref={bottomRef} />
                   </div>
                 </ScrollArea>
+              ) : messages && messages.length > 0 ? (
+                <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
+                  <Filter className="h-10 w-10 text-[#c8828d]/50 mb-3" />
+                  <p className="text-[#b56a78] mb-2">選択したカテゴリーのメッセージが見つかりませんでした</p>
+                  <Badge 
+                    variant="outline" 
+                    className="mt-2 cursor-pointer"
+                    onClick={() => setSelectedCategory("ALL")}
+                  >
+                    <Tag className="h-3 w-3 mr-1" />
+                    すべてのメッセージを表示
+                  </Badge>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-muted-foreground">このユーザーのメッセージが見つかりませんでした</p>
+                  <MessageSquare className="h-12 w-12 text-[#c8828d]/50 mb-4" />
+                  <p className="text-[#b56a78]">このユーザーのメッセージが見つかりませんでした</p>
                 </div>
               )}
             </CardContent>
-            {selectedSessionId && messages && messages.length > 0 && (
-              <CardFooter className="bg-muted/30 border-t px-4 py-1 text-xs text-muted-foreground justify-between">
-                <span>最初のメッセージ: {formatTimestamp(messages[0].timestamp.toString())}</span>
-                <span>最新のメッセージ: {formatTimestamp(messages[messages.length - 1].timestamp.toString())}</span>
+            {selectedSessionId && filteredMessages && filteredMessages.length > 0 && (
+              <CardFooter className="bg-[#ffe9ec]/30 border-t px-4 py-1 text-xs text-[#b56a78] justify-between">
+                <span>最初のメッセージ: {formatTimestamp(filteredMessages[0].timestamp.toString())}</span>
+                <span>最新のメッセージ: {formatTimestamp(filteredMessages[filteredMessages.length - 1].timestamp.toString())}</span>
+                {selectedCategory !== "ALL" && (
+                  <Badge variant="outline" className="ml-2 px-2">
+                    <Tag className="h-3 w-3 mr-1" />
+                    {CATEGORIES[selectedCategory]} フィルター適用中
+                  </Badge>
+                )}
               </CardFooter>
             )}
           </Card>

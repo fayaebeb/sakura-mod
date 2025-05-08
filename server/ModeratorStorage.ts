@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { moderatorDb } from "./moderatorDb";
-import { messages, type Message } from "@shared/moderatorSchema";
+import { messages, feedback, type Message, type Feedback } from "@shared/moderatorSchema";
 
 export class ModeratorStorage {
   /**
@@ -17,7 +17,6 @@ export class ModeratorStorage {
     return results
     .map(row => row.sessionId)
     .filter((id): id is string => id !== null);
-
   }
 
   /**
@@ -32,5 +31,42 @@ export class ModeratorStorage {
       .from(messages)
       .where(eq(messages.sessionId, sessionId))
       .orderBy(messages.timestamp);
+  }
+
+  /**
+   * Retrieves all feedback entries, ordered by creation date.
+   * This enables moderators to view all user feedback.
+   */
+  async getAllFeedback(): Promise<Feedback[]> {
+    return await moderatorDb
+      .select()
+      .from(feedback)
+      .orderBy(feedback.createdAt);
+  }
+
+  /**
+   * Retrieves feedback for a specific session ID.
+   * 
+   * @param sessionId - The session ID for which to fetch feedback.
+   */
+  async getFeedbackBySessionId(sessionId: string): Promise<Feedback[]> {
+    return await moderatorDb
+      .select()
+      .from(feedback)
+      .where(eq(feedback.sessionId, sessionId))
+      .orderBy(feedback.createdAt);
+  }
+
+  /**
+   * Retrieves feedback for a specific user ID.
+   * 
+   * @param userId - The user ID for which to fetch feedback.
+   */
+  async getFeedbackByUserId(userId: number): Promise<Feedback[]> {
+    return await moderatorDb
+      .select()
+      .from(feedback)
+      .where(eq(feedback.userId, userId))
+      .orderBy(feedback.createdAt);
   }
 }

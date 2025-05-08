@@ -169,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           output_type: "chat",
           input_type: "chat",
           tweaks: {
-            " TextInput-2tT8x": {
+            " TextInput-Q9wOc": {
               input_value: persistentSessionId,
             },
           },
@@ -381,6 +381,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error retrieving messages for session:", error);
       res.status(500).json({
         message: "Failed to retrieve messages for session",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Get all feedback entries
+  app.get("/api/moderator/feedback", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const feedback = await moderatorStorage.getAllFeedback();
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error retrieving feedback entries:", error);
+      res.status(500).json({
+        message: "Failed to retrieve feedback entries",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Get feedback for a specific session
+  app.get("/api/moderator/feedback/session/:sessionId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const sessionId = req.params.sessionId;
+      const feedback = await moderatorStorage.getFeedbackBySessionId(sessionId);
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error retrieving feedback for session:", error);
+      res.status(500).json({
+        message: "Failed to retrieve feedback for session",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Get feedback for a specific user
+  app.get("/api/moderator/feedback/user/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const userId = parseInt(req.params.userId, 10);
+      const feedback = await moderatorStorage.getFeedbackByUserId(userId);
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error retrieving feedback for user:", error);
+      res.status(500).json({
+        message: "Failed to retrieve feedback for user",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }
