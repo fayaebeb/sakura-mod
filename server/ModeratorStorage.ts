@@ -25,6 +25,14 @@ export class ModeratorStorage {
    * 
    * @param sessionId - The session ID for which to fetch messages.
    */
+
+  async getAllMessages(): Promise<Message[]> {
+    return await moderatorDb
+      .select()
+      .from(messages)
+      .orderBy(messages.timestamp);
+  }
+  
   async getMessagesBySessionId(sessionId: string): Promise<Message[]> {
     return await moderatorDb
       .select()

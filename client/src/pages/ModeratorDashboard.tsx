@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Card,
@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Message } from "@shared/moderatorSchema";
-import { ArrowLeft, UserIcon, SearchIcon, MessageSquare, Users, Shield, Filter, Tag, ClipboardList, Menu, Home } from "lucide-react";
+import { ArrowLeft, UserIcon, SearchIcon, MessageSquare, Users, Shield, Filter, Tag, ClipboardList, Menu, Home, SquareMinus } from "lucide-react";
 import { useLocation } from "wouter";
 import ChatMsg from "@/components/chat-msg";
 import { Badge } from "@/components/ui/badge";
@@ -41,11 +41,26 @@ type CategoryType = keyof typeof CATEGORIES | "ALL";
 export default function ModeratorDashboard() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<CategoryType>("ALL");
+ const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>("ALL");
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
   const isMobile = useIsMobile();
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const {
+    data: allMessages,
+    isLoading: isLoadingAllMessages,
+    error: allMessagesError
+  } = useQuery({
+    queryKey: ["/api/moderator/messages"],
+    queryFn: async () => {
+      const res = await fetch("/api/moderator/messages");
+      if (!res.ok) throw new Error("Failed to fetch all messages");
+      return res.json();
+    },
+    enabled: !selectedSessionId,
+    retry: 1
+  });
 
 
   // Query to fetch all session IDs (usernames)
@@ -80,11 +95,35 @@ export default function ModeratorDashboard() {
   });
 
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    if (allMessagesError) {
+      toast({
+        title: "Error fetching all messages",
+        description:
+          allMessagesError instanceof Error
+            ? allMessagesError.message
+            : "Unknown error",
+        variant: "destructive"
+      });
     }
-  }, [messages]);
+  }, [allMessagesError, toast]);
 
+  // Filter sessions by search term
+  const activeMessages = selectedSessionId ? messages : allMessages;
+
+  const filteredMessages = activeMessages?.filter((message: Message) => {
+    if (selectedCategory === null) return false; // Show nothing
+    if (selectedCategory === "ALL") return true;
+    if (!message.category) return false;
+    return message.category === selectedCategory;
+  });
+
+  useLayoutEffect(() => {
+    if (!bottomRef.current) return;
+    const timeout = setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timeout);
+  }, [filteredMessages?.length]);
 
   useEffect(() => {
     if (sessionIdsError) {
@@ -109,6 +148,7 @@ export default function ModeratorDashboard() {
       });
     }
   }, [sessionIdsError, messagesError, toast]);
+
 
   const formatTimestamp = (timestamp: string) => {
     const rtf = new Intl.RelativeTimeFormat('ja', { numeric: 'auto' });
@@ -141,20 +181,14 @@ export default function ModeratorDashboard() {
   };
 
 
+  
+
   // Filter sessions by search term
   const filteredSessions = sessionIds?.filter((id: string) =>
     id.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
-  // Filter messages by selected category
-  const filteredMessages = messages?.filter((message: Message) => {
-    if (selectedCategory === "ALL") return true;
-    
-    // For bot messages or messages without category, only show when "ALL" is selected
-    if (!message.category) return false;
-    
-    return message.category === selectedCategory;
-  });
+
+
   return (
         <div className="min-h-screen bg-gradient-to-br from-[#fff1f2] via-[#ffeae5] to-[#fff4e6]">
               <div className="container mx-auto px-4 py-6">
@@ -263,9 +297,9 @@ export default function ModeratorDashboard() {
                         <span className="text-base font-semibold">{filteredSessions?.length || 0}</span>
                       </div>
                     </div>
-                    
+
                     <div className="h-10 w-[1px] bg-muted mx-2"></div>
-                    
+
                     <div className="flex items-center">
                       <div className="p-1.5 bg-primary/10 rounded-full mr-2">
                         <MessageSquare className="h-5 w-5 text-primary" />
@@ -277,16 +311,18 @@ export default function ModeratorDashboard() {
                     </div>
                   </div>
                 </div>
-             
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* User List */}
-          <Card className="md:col-span-4 border-0 shadow-md">
+          <Card className="md:col-span-4 border-0 shadow-md ">
             <CardHeader className="bg-[#ffe9ec]/30 border-b">
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 ユーザー一覧
               </CardTitle>
-              <CardDescription>チャット履歴を表示するには、ユーザーを選択してください</CardDescription>
+              <CardDescription className="hidden sm:block">
+                チャット履歴を表示するには、ユーザーを選択してください
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-4">
               <div className="relative mb-4">
@@ -318,7 +354,11 @@ export default function ModeratorDashboard() {
                             ? "bg-primary/10 border border-[#f5cfd4] shadow-sm" 
                             : "hover:bg-muted"
                         }`}
-                        onClick={() => setSelectedSessionId(sessionId)}
+                        onClick={() =>
+                          setSelectedSessionId((prev) =>
+                            prev === sessionId ? null : sessionId
+                          )
+                        }
                       >
                         <div className="flex items-center">
                           <UserIcon className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -326,6 +366,7 @@ export default function ModeratorDashboard() {
                         </div>
                       </Button>
                     ))}
+                    <div ref={bottomRef} />
                   </div>
                 </ScrollArea>
               ) : (
@@ -344,132 +385,187 @@ export default function ModeratorDashboard() {
             )}
           </Card>
 
-          <Card className="md:col-span-8 border-0 shadow-md">
-            <CardHeader className="bg-[#ffe9ec]/30 border-b">
-              {selectedSessionId ? (
-                <>
-                  <CardTitle className="flex items-center gap-2 flex-nowrap overflow-x-auto">
-                    <MessageSquare className="h-5 w-5 shrink-0 text-[#c55a6a]" />
+              <Card className="md:col-span-8 border-0 shadow-md flex flex-col h-[calc(100vh-100px)]">
+              <CardHeader className="bg-[#ffe9ec]/30 border-b">
+                <div className="flex flex-col gap-4 w-full">
+                  {/* Top section: Title and User Info */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 w-full">
+                    <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5 shrink-0" />
+                        <span className="text-lg font-semibold">チャット履歴</span>
+                      </div>
 
-                    <span className="whitespace-nowrap shrink-0">チャット履歴:</span>
+                      {/* User Info and Clear Button */}
+                      {selectedSessionId && (
+                        <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-0">
+                          <Badge
+                            variant="secondary"
+                            className="px-3 py-1 text-sm h-auto flex items-center gap-1 bg-[#ffe9ec] text-[#c55a6a] border border-[#f5cfd4] shrink-0"
+                          >
+                            <UserIcon className="w-5 h-5 text-[#c55a6a]" />
+                            <span>{selectedSessionId}</span>
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedSessionId(null)}
+                            className="text-sm text-[#b56a78] hover:text-primary px-2 py-1"
+                          >
+                            <SquareMinus className="h-4 w-4 mr-1" />
+                            ユーザー選択を解除
+                          </Button>
+                        </div>
+                      )}
+                    </CardTitle>
+                  </div>
 
-                    <Badge
-                      variant="secondary"
-                      className="ml-2 px-3 py-1 text-base h-auto leading-tight flex items-center gap-1 whitespace-nowrap shrink-0 bg-[#ffe9ec] text-[#c55a6a] border border-[#f5cfd4]"
-                    >
-                      <UserIcon className="w-5 h-5 text-[#c55a6a]" />
-                      <span className="text-base">{selectedSessionId}</span>
-                    </Badge>
-
-
-                    {filteredMessages && (
-                      <Badge
-                        variant="outline"
-                        className="ml-auto px-2 py-0 text-xs whitespace-nowrap shrink-0"
-                      >
-                        {filteredMessages.length} メッセージ
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  
-                  {/* Category Filter Buttons */}
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <div className="flex items-center mr-1">
-                      <Filter className="h-4 w-4 mr-1 text-[#b56a78]" />
-                      <span className="text-xs text-[#b56a78]">カテゴリー:</span>
+                  {/* Category Filters */}
+                  <div className="overflow-x-auto">
+                    <div className="flex items-center gap-2 min-w-max">
+                      <div className="hidden sm:flex items-center shrink-0">
+                        <Filter className="h-4 w-4 mr-1 text-[#b56a78]" />
+                        <span className="text-xs text-[#b56a78]">カテゴリー:</span>
+                      </div>
+                      {(Object.keys(CATEGORIES) as CategoryType[]).map((cat) => (
+                        <Badge
+                          key={cat}
+                          variant={
+                            selectedCategory === cat
+                              ? cat === "ALL"
+                                ? "default"
+                                : cat === "ADMINISTRATIVE"
+                                ? "destructive"
+                                : cat === "PRIVATE"
+                                ? "secondary"
+                                : "default"
+                              : "outline"
+                          }
+                          className={`px-2 py-1 flex items-center cursor-pointer transition-all hover:shadow whitespace-nowrap ${
+                            selectedCategory === cat ? "ring-1 ring-primary/30" : ""
+                          }`}
+                          onClick={() =>
+                            setSelectedCategory((prev) =>
+                              prev === cat ? (cat === "ALL" ? null : "ALL") : cat
+                            )
+                          }
+                        >
+                          <Tag className="h-3 w-3 mr-1" />
+                          {CATEGORIES[cat]}
+                        </Badge>
+                      ))}
                     </div>
-                    
-                    {(Object.keys(CATEGORIES) as CategoryType[]).map((cat) => (
-                      <Badge
-                        key={cat}
-                        variant={selectedCategory === cat ? 
-                          (cat === "ALL" ? "default" : 
-                           cat === "ADMINISTRATIVE" ? "destructive" : 
-                           cat === "PRIVATE" ? "secondary" : "default") 
-                          : "outline"
-                        }
-                        className={`px-2 py-1 cursor-pointer transition-all hover:shadow ${
-                          selectedCategory === cat ? 'ring-1 ring-primary/30' : ''
-                        }`}
-                        onClick={() => setSelectedCategory(cat)}
-                      >
-                        <Tag className="h-3 w-3 mr-1" />
-                        {CATEGORIES[cat]}
-                      </Badge>
-                    ))}
                   </div>
-                </>
-              ) : (
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  チャット履歴
-                </CardTitle>
-              )}
 
-              {!selectedSessionId && (
-                <CardDescription>
-                  左側のユーザー一覧から選択して、チャット履歴を表示してください
-                </CardDescription>
-              )}
-            </CardHeader>
-            <CardContent className="p-4 h-[calc(100vh-200px)]">
-              {!selectedSessionId ? (
-                <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
-                  <MessageSquare className="h-12 w-12 text-[#c8828d]/50 mb-4" />
-                  <p className="text-[#b56a78] mb-2">チャット履歴を表示するには、ユーザーを選択してください</p>
-                  <Badge variant="outline" className="mt-2">左側のユーザー一覧から選択</Badge>
+
+                  {!selectedSessionId && (
+                    <CardDescription className="hidden sm:block">
+                      左側のユーザー一覧から選択して、チャット履歴を表示してください
+                    </CardDescription>
+                  )}
                 </div>
-              ) : isLoadingMessages ? (
-                <div className="flex justify-center items-center p-8 h-full">
-                  <div className="animate-pulse flex flex-col items-center">
-                    <MessageSquare className="h-8 w-8 text-muted mb-2" />
-                    <p className="text-[#b56a78]">メッセージを読み込み中...</p>
-                  </div>
-                </div>
-              ) : filteredMessages && filteredMessages.length > 0 ? (
+              </CardHeader>
+
+
+            <CardContent className="p-4 flex-1 overflow-hidden">
+            {!selectedSessionId ? (
+              filteredMessages && filteredMessages.length > 0 ? (
                 <ScrollArea className="h-full pr-2">
                   <div className="space-y-4">
                     {filteredMessages.map((message: Message) => (
                       <div key={message.id} className="group relative">
                         <ChatMsg message={message} />
-                        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     ))}
                     <div ref={bottomRef} />
                   </div>
                 </ScrollArea>
-              ) : messages && messages.length > 0 ? (
-                <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
-                  <Filter className="h-10 w-10 text-[#c8828d]/50 mb-3" />
-                  <p className="text-[#b56a78] mb-2">選択したカテゴリーのメッセージが見つかりませんでした</p>
-                  <Badge 
-                    variant="outline" 
-                    className="mt-2 cursor-pointer"
-                    onClick={() => setSelectedCategory("ALL")}
-                  >
-                    <Tag className="h-3 w-3 mr-1" />
-                    すべてのメッセージを表示
-                  </Badge>
-                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
-                  <MessageSquare className="h-12 w-12 text-[#c8828d]/50 mb-4" />
-                  <p className="text-[#b56a78]">このユーザーのメッセージが見つかりませんでした</p>
+                  <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
+                    <MessageSquare className="h-12 w-12 text-[#c8828d]/50 mb-4" />
+                    <p className="text-[#b56a78] mb-2">
+                      {selectedCategory === null ? (
+                        "メッセージは表示されていません"
+                      ) : selectedCategory === "ALL" ? (
+                        "チャット履歴を表示するには、ユーザーを選択してください"
+                      ) : (
+                        `カテゴリ「${CATEGORIES[selectedCategory]}」のメッセージが見つかりませんでした`
+                      )}
+                    </p>
+                  {selectedCategory !== "ALL" && (
+                    <Badge
+                      variant="outline"
+                      className="mt-2 cursor-pointer"
+                      onClick={() => setSelectedCategory("ALL")}
+                    >
+                      <Tag className="h-3 w-3 mr-1" />
+                      すべてのメッセージを表示
+                    </Badge>
+                  )}
                 </div>
-              )}
-            </CardContent>
-            {selectedSessionId && filteredMessages && filteredMessages.length > 0 && (
-              <CardFooter className="bg-[#ffe9ec]/30 border-t px-4 py-1 text-xs text-[#b56a78] justify-between">
-                <span>最初のメッセージ: {formatTimestamp(filteredMessages[0].timestamp.toString())}</span>
-                <span>最新のメッセージ: {formatTimestamp(filteredMessages[filteredMessages.length - 1].timestamp.toString())}</span>
-                {selectedCategory !== "ALL" && (
-                  <Badge variant="outline" className="ml-2 px-2">
-                    <Tag className="h-3 w-3 mr-1" />
-                    {CATEGORIES[selectedCategory]} フィルター適用中
-                  </Badge>
-                )}
-              </CardFooter>
+              )
+            ) : isLoadingMessages ? (
+              <div className="flex justify-center items-center p-8 h-full">
+                <div className="animate-pulse flex flex-col items-center">
+                  <MessageSquare className="h-8 w-8 text-muted mb-2" />
+                  <p className="text-[#b56a78]">メッセージを読み込み中...</p>
+                </div>
+              </div>
+            ) : filteredMessages && filteredMessages.length > 0 ? (
+              <ScrollArea className="h-full pr-2">
+                <div className="space-y-4">
+                  {filteredMessages.map((message: Message) => (
+                    <div key={message.id} className="group relative">
+                      <ChatMsg message={message} />
+                      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  ))}
+                  <div ref={bottomRef} />
+                </div>
+              </ScrollArea>
+            ) : messages && messages.length > 0 ? (
+              <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
+                <Filter className="h-10 w-10 text-[#c8828d]/50 mb-3" />
+                <p className="text-[#b56a78] mb-2">選択したカテゴリーのメッセージが見つかりませんでした</p>
+                <Badge
+                  variant="outline"
+                  className="mt-2 cursor-pointer"
+                  onClick={() => setSelectedCategory("ALL")}
+                >
+                  <Tag className="h-3 w-3 mr-1" />
+                  すべてのメッセージを表示
+                </Badge>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full border rounded-lg border-dashed">
+                <MessageSquare className="h-12 w-12 text-[#c8828d]/50 mb-4" />
+                <p className="text-[#b56a78]">このユーザーのメッセージが見つかりませんでした</p>
+              </div>
             )}
+
+              {selectedSessionId && filteredMessages && filteredMessages.length > 0 && (
+                <CardFooter className="bg-[#ffe9ec]/30 border-t px-4 py-2 text-[11px] sm:text-xs text-[#b56a78] min-h-[40px] overflow-x-auto">
+                  <div className="flex items-center gap-4 min-w-max">
+                    <span className="whitespace-nowrap">
+                      最初のメッセージ: {formatTimestamp(filteredMessages[0].timestamp.toString())}
+                    </span>
+                    <span className="whitespace-nowrap">
+                      最新のメッセージ: {formatTimestamp(filteredMessages[filteredMessages.length - 1].timestamp.toString())}
+                    </span>
+                    {selectedCategory && selectedCategory !== "ALL" && (
+                      <Badge variant="outline" className="px-2 py-1 flex items-center whitespace-nowrap shrink-0">
+                        <Tag className="h-3 w-3 mr-1" />
+                        {CATEGORIES[selectedCategory]} フィルター適用中
+                      </Badge>
+                    )}
+                  </div>
+                </CardFooter>
+              )}
+
+
+          </CardContent>
+
+
           </Card>
 
         </div>

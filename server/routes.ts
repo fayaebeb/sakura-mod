@@ -365,6 +365,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/moderator/messages", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const { category } = req.query;
+
+      let allMessages = await moderatorStorage.getAllMessages();
+
+      if (category && category !== "ALL") {
+        allMessages = allMessages.filter((msg) => msg.category === category);
+      }
+
+      res.json(allMessages);
+    } catch (error) {
+      console.error("Error retrieving all messages:", error);
+      res.status(500).json({
+        message: "Failed to retrieve all messages",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+
   // Get all messages for a specific session ID
   app.get("/api/moderator/messages/:sessionId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
