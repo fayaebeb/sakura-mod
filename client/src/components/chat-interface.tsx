@@ -175,77 +175,51 @@ export default function ChatInterface() {
   };
 
 
-  const [sessionId, setSessionId] = useState<string>(() => {
-    if (!user) return "";
-
-    const storageKey = `${CHAT_SESSION_KEY_PREFIX}${user.id}`;
-    const savedSessionId = localStorage.getItem(storageKey);
-    if (savedSessionId) return savedSessionId;
-
-    const newSessionId = nanoid();
-    localStorage.setItem(storageKey, newSessionId);
-    return newSessionId;
-  });
-
-  useEffect(() => {
-    if (!user) return;
-
-    const storageKey = `${CHAT_SESSION_KEY_PREFIX}${user.id}`;
-    const savedSessionId = localStorage.getItem(storageKey);
-
-    if (savedSessionId) {
-      setSessionId(savedSessionId);
-    } else {
-      const newSessionId = nanoid();
-      localStorage.setItem(storageKey, newSessionId);
-      setSessionId(newSessionId);
-    }
-  }, [user]);
-
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery<Message[]>({
-    queryKey: ["/api/messages", sessionId],
+    queryKey: ["/api/messages"],
     queryFn: async () => {
-      const res = await fetch(`/api/messages/${sessionId}`, {
+      const res = await fetch(`/api/messages`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("メッセージを取ってこられなかったよ...ごめんね！");
       return res.json();
     },
-    enabled: !!user && !!sessionId,
+    enabled: !!user,
   });
+
+
 
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       const res = await apiRequest("POST", "/api/chat", {
         content,
-        sessionId,
         isBot: false,
+        sessionId: "global", // use a constant value
       });
       return res.json();
     },
     onMutate: async (content: string) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/messages", sessionId] });
+      await queryClient.cancelQueries({ queryKey: ["/api/messages"] });
 
-      const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages", sessionId]) || [];
-      const previousData = queryClient.getQueryData<Message[]>(["/api/messages", sessionId]) || [];
+      const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages"]) || [];
 
-      // @ts-ignore - Bypassing type checks for optimistic UI updates
-      queryClient.setQueryData<any>(["/api/messages", sessionId], [
-        ...previousData,
+      queryClient.setQueryData<Message[]>(["/api/messages"], [
+        ...previousMessages,
         {
           id: parseInt(nanoid(), 36),
           content,
           isBot: false,
           userId: user?.id || 0,
-          sessionId,
           timestamp: new Date(),
-        }
+          sessionId: "global",
+          fileId: null
+        },
       ]);
 
       return { previousMessages };
     },
     onSuccess: (newBotMessage: Message) => {
-      queryClient.setQueryData<Message[]>(["/api/messages", sessionId], (old) => [
+      queryClient.setQueryData<Message[]>(["/api/messages"], (old) => [
         ...(old || []),
         newBotMessage,
       ]);
@@ -261,7 +235,7 @@ export default function ChatInterface() {
     },
     onError: (_, __, context) => {
       if (context?.previousMessages) {
-        queryClient.setQueryData(["/api/messages", sessionId], context.previousMessages);
+        queryClient.setQueryData(["/api/messages"], context.previousMessages);
       }
       toast({
         title: "送信エラー",
@@ -280,7 +254,7 @@ export default function ChatInterface() {
         formData.append('files', file);
       });
       
-      formData.append('sessionId', sessionId);
+      //formData.append('sessionId', sessionId);
 
       // Initialize progress for each file
       const initialProgress: Record<string, number> = {};
@@ -331,7 +305,7 @@ export default function ChatInterface() {
       });
     },
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/messages", sessionId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
       
       // Clear file progress and selected files
       setFileUploadProgress({});
@@ -534,7 +508,7 @@ export default function ChatInterface() {
             <div className="flex flex-col items-center gap-2 p-4 bg-[#f8eee2]/30 rounded-lg">
               <LoadingDots />
               <p className="text-sm text-muted-foreground">
-                {uploadFiles.isPending ? "ファイルを処理中です..." : "桜AIが一生懸命考えているよ...！"}
+                {uploadFiles.isPending ? "ファイルを処理中です..." : "桜AIがデータを処理しています...！"}
               </p>
             </div>
           )}

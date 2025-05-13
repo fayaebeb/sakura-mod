@@ -9,7 +9,6 @@ import { DataAPIClient } from "@datastax/astra-db-ts";
 import { ModeratorStorage } from "./ModeratorStorage";
 const moderatorStorage = new ModeratorStorage();
 
-
 // Langflow API configuration
 const LANGFLOW_API = process.env.LANGFLOW_API || '';
 
@@ -219,24 +218,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/messages/:sessionId", async (req, res) => {
+  app.get("/api/messages", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      const persistentSessionId = req.user!.username.split('@')[0];
-      const messages = await storage.getMessagesByUserAndSession(
-        req.user!.id,
-        persistentSessionId
-      );
+      const messages = await storage.getAllMessagesWithUsers();
       res.json(messages);
     } catch (error) {
-      console.error("Error retrieving messages:", error);
+      console.error("Error retrieving all messages:", error);
       res.status(500).json({
         message: "Failed to retrieve messages",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   });
+
 
   app.get("/api/files", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -270,9 +266,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if this message belongs to the authenticated user
-      if (message.userId !== req.user!.id) {
+      /*if (message.userId !== req.user!.id) {
         return res.status(403).json({ error: "Permission denied" });
-      }
+      }*/
 
       // If it's a bot message, check for AstraDB content to delete
       if (message.isBot) {

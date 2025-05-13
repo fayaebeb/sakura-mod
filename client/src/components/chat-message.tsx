@@ -25,6 +25,7 @@ import React from "react";
 
 interface MessageWithBot extends Omit<Message, 'isBot'> {
   isBot: boolean;
+  username?: string; // username is optional (only on user messages)
 }
 
 export default function ChatMessage({ message }: { message: MessageWithBot }) {
@@ -77,11 +78,16 @@ export default function ChatMessage({ message }: { message: MessageWithBot }) {
         )}
 
         <Card
-          className={cn("px-4 py-3 max-w-[80%] rounded-lg relative", {
-            "bg-[#FFB7C5] text-black border border-[#FF98A5] shadow-md": !message.isBot,
-            "bg-gray-100 text-black": message.isBot,
+            className={cn("px-4 py-3 pb-6 max-w-[80%] rounded-lg relative", {
+              "bg-[#FFB7C5] text-black border border-[#FF98A5] shadow-md": !message.isBot,
+              "bg-gray-100 text-black": message.isBot,
           })}
-        >
+        >       
+          {!message.isBot && message.username && (
+            <div className="absolute bottom-1 right-2 text-[10px] bg-gray-200 px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">
+              {message.username.split('@')[0]}
+            </div>
+          )}
           <div className="break-words text-black">
             {message.isBot ? (
               <ReactMarkdown remarkPlugins={[remarkGfm]}>

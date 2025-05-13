@@ -216,6 +216,28 @@ export class DatabaseStorage implements IStorage {
     return results.map(row => row.sessionId);
   }
 
+  async getAllMessagesWithUsers(): Promise<
+    (Message & { username: string })[]
+  > {
+    const results = await db
+      .select({
+        id: messages.id,
+        content: messages.content,
+        isBot: messages.isBot,
+        timestamp: messages.timestamp,
+        sessionId: messages.sessionId,
+        userId: messages.userId,
+        fileId: messages.fileId,
+        username: users.username,
+      })
+      .from(messages)
+      .innerJoin(users, eq(messages.userId, users.id))
+      .orderBy(messages.timestamp);
+
+    return results;
+  }
+
+
   async getMessagesBySessionId(sessionId: string): Promise<Message[]> {
     return await db
       .select()
