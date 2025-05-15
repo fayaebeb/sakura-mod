@@ -171,6 +171,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             " TextInput-FGCX6": {
               input_value: persistentSessionId,
             },
+            "ChatOutput-zqZ5N": {
+    "should_store_message": false
+  },
           },
         }),
       });
