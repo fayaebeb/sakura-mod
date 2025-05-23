@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, FileText, Globe, Tag } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Globe, Tag, Eye } from "lucide-react";
 import { Button } from "./ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -27,20 +27,28 @@ const formatTimestamp = (timestamp: string | Date) => {
 
 // Helper function to parse message content into sections
 const parseMessageContent = (content: string) => {
-  const sections = {
-    mainText: "",
-    companyDocs: "",
-    onlineInfo: ""
-  };
+  const sections = { mainText: "", companyDocs: "", onlineInfo: "" };
 
-  // Split by company docs marker
-  const [beforeCompanyDocs, afterCompanyDocs = ""] = content.split("### 社内文書情報:");
-  sections.mainText = beforeCompanyDocs.trim();
+  const companyMarker = "### 社内文書情報:";
+  const onlineMarker = "### オンラインWeb情報:";
 
-  // Split remaining content by online info marker
-  const [companyDocs, onlineInfo = ""] = afterCompanyDocs.split("### オンラインWeb情報:");
-  sections.companyDocs = companyDocs.trim();
-  sections.onlineInfo = onlineInfo.trim();
+  const companyIndex = content.indexOf(companyMarker);
+  const onlineIndex = content.indexOf(onlineMarker);
+
+  if (companyIndex !== -1 && (onlineIndex === -1 || companyIndex < onlineIndex)) {
+    sections.mainText = content.slice(0, companyIndex).trim();
+    if (onlineIndex !== -1) {
+      sections.companyDocs = content.slice(companyIndex + companyMarker.length, onlineIndex).trim();
+      sections.onlineInfo = content.slice(onlineIndex + onlineMarker.length).trim();
+    } else {
+      sections.companyDocs = content.slice(companyIndex + companyMarker.length).trim();
+    }
+  } else if (onlineIndex !== -1) {
+    sections.mainText = content.slice(0, onlineIndex).trim();
+    sections.onlineInfo = content.slice(onlineIndex + onlineMarker.length).trim();
+  } else {
+    sections.mainText = content.trim();
+  }
 
   return sections;
 };
@@ -240,6 +248,14 @@ export default function ChatMsg({ message }: { message: Message }) {
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
+                      a: ({ href, children }) => (
+                        <a
+                          href={href}
+                          className="text-[#CC3366] hover:text-[#FF98A5] underline"
+                        >
+                          {children}
+                        </a>
+                    ),
                     table: ({ node, ...props }) => (
                       <div className="overflow-x-auto w-full">
                         <table className="text-[11px] sm:text-sm border-collapse w-full min-w-[400px]" {...props} />
@@ -279,6 +295,14 @@ export default function ChatMsg({ message }: { message: Message }) {
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
+                  a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        className="text-[#CC3366] hover:text-[#FF98A5] underline"
+                      >
+                        {children}
+                      </a>
+                  ),
                   table: ({ node, ...props }) => (
                     <div className="overflow-x-auto w-full">
                       <table className="text-[11px] sm:text-sm border-collapse w-full min-w-[400px]" {...props} />

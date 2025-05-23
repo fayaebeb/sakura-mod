@@ -41,7 +41,7 @@ type CategoryType = keyof typeof CATEGORIES | "ALL";
 export default function ModeratorDashboard() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
- const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>("ALL");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
   const isMobile = useIsMobile();
@@ -442,11 +442,20 @@ export default function ModeratorDashboard() {
                               : "outline"
                           }
                           className={`px-2 py-1 flex items-center cursor-pointer transition-all hover:shadow whitespace-nowrap ${
-                            selectedCategory === cat ? "ring-1 ring-primary/30" : ""
+                            selectedCategory === cat
+                              
+                            ? cat === "ADMINISTRATIVE"
+                                ? "bg-red-100 text-red-700 border-red-300"
+                                : cat === "PRIVATE"
+                                ? "bg-blue-100 text-blue-700 border-blue-300"
+                                : cat === "SELF"
+                                ? "bg-green-100 text-green-700 border-green-300"
+                                : ""
+                              : ""
                           }`}
                           onClick={() =>
                             setSelectedCategory((prev) =>
-                              prev === cat ? (cat === "ALL" ? null : "ALL") : cat
+                              prev === cat ? null : cat
                             )
                           }
                         >
