@@ -70,7 +70,7 @@ export default function ChatMessage({ message }: { message: MessageWithBot }) {
         {message.isBot && (
           <Avatar>
             <img
-              src="/images/sava.jpg"
+              src="/images/sakura-dp.png"
               alt="sakura AI"
               className="w-full h-full object-cover rounded-full border border-pink-400 shadow-md"
             />

@@ -486,7 +486,7 @@ export default function ChatInterface() {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 px-4">
               <div className="w-16 h-16 rounded-full bg-[#f8eee2] flex items-center justify-center mb-4">
-                <img src="/images/skmod.png"
+                <img src="/images/sakura-mod-logo.png"
                   alt="Descriptive Alt Text"
                   className="h-20 w-20 object-contain"
                 />

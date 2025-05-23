@@ -60,7 +60,7 @@ export default function AuthPage() {
       <div className="min-h-screen flex flex-col md:grid md:grid-cols-2 bg-gradient-to-b from-[#f8eee2] to-[#f7e6d5]">
         {/* Bot Logo in Mobile View */}
         <div className="flex flex-col items-center justify-center p-6 md:hidden">
-          <img src="/images/skmod.png" alt="桜AI ロゴ" className="w-33 mb-2 drop-shadow-md" />
+          <img src="/images/full-sakura-mod.png" alt="桜AI ロゴ" className="w-33 mb-2 drop-shadow-md" />
           
         </div>
 
@@ -184,7 +184,7 @@ export default function AuthPage() {
 
         {/* Branding Section (Hidden in Mobile) */}
         <div className="hidden md:flex flex-col justify-center items-center p-10 bg-[#f8eee2] text-[#16213e]">
-          <img src="/images/skmod.png" alt="桜AI ロゴ" className="w-50 mb-8 drop-shadow-lg" />
+          <img src="/images/full-sakura-mod.png" alt="桜AI ロゴ" className="w-50 mb-8 drop-shadow-lg" />
           
         </div>
       </div>

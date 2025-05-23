@@ -68,7 +68,7 @@ export default function HomePage() {
         {/* Center: Sakura Logo */}
         <div className="flex justify-center flex-1">
           <motion.img
-            src="/images/skmod.png"
+            src="/images/sakura-mod-logo.png"
             alt="桜AI ロゴ"
             className="h-16 sm:h-24 w-auto"
             whileHover={{ scale: 1.05, rotate: [-1, 1, -1, 0] }}
@@ -213,7 +213,7 @@ export default function HomePage() {
               <div className="bg-gradient-to-br from-[#fff1f2] via-[#ffeae5] to-[#fff4e6] rounded-2xl shadow-xl overflow-hidden max-w-3xl mx-auto border border-[#f5cfd4]">
                 <div className="px-4 py-3 bg-[#ffe9ec]/80 border-b border-[#f5cfd4] flex justify-between items-center">
                   <h2 className="text-[#b35a68] font-semibold flex items-center gap-2">
-                    <img src="/images/favicon.png" alt="Icon" className="w-5 h-5" />
+                    <img src="/images/sakura-dp.png" alt="Icon" className="w-5 h-5" />
                     桜AIデータ入力パネル
                   </h2>
                 </div>

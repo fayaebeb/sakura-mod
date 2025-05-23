@@ -9,15 +9,9 @@ import { DataAPIClient } from "@datastax/astra-db-ts";
 import { ModeratorStorage } from "./ModeratorStorage";
 const moderatorStorage = new ModeratorStorage();
 
-// Langflow API configuration
-const LANGFLOW_API = process.env.LANGFLOW_API || '';
 
 const client = new DataAPIClient(process.env.ASTRA_API_TOKEN || '');
 const db = client.db(process.env.ASTRA_DB_URL || '');
-
-function formatBotResponse(text: string): string {
-  return text.replace(/\\n/g, '\n').trim();
-}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -149,62 +143,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const body = result.data;
 
     try {
+      // Save the user message to local DB
       await storage.createMessage(req.user!.id, {
         content: body.content,
         isBot: false,
         sessionId: persistentSessionId,
       });
 
-      console.log(`Sending request to Langflow API: ${body.content}`);
-      const response = await fetch(LANGFLOW_API, {
+      console.log(`Sending request to FastAPI: ${body.content}`);
+
+      const response = await fetch("https://skapi-qkrap.ondigitalocean.app/skmod", {
         method: "POST",
         headers: {
-          Authorization: process.env.AUTHORIZATION_TOKEN || '',
-                "Content-Type": "application/json",
-                "x-api-key": process.env.X_API_KEY || '',
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          input_value: body.content,
-          output_type: "chat",
-          input_type: "chat",
-          tweaks: {
-            " TextInput-FGCX6": {
-              input_value: persistentSessionId,
-            },
-            "ChatOutput-zqZ5N": {
-    "should_store_message": false
-  },
-          },
-        }),
+          input: body.content,
+          session_id: persistentSessionId
+        })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Langflow API Error:", errorText);
-        throw new Error(`Langflow API responded with status ${response.status}`);
+        console.error("FastAPI Error:", errorText);
+        throw new Error(`FastAPI responded with status ${response.status}`);
       }
 
-      const aiResponse = await response.json();
-      console.log("Langflow API Response:", JSON.stringify(aiResponse, null, 2));
+      const apiResponse = await response.json();
+      console.log("FastAPI Response:", JSON.stringify(apiResponse, null, 2));
 
-      let aiOutputText = null;
+      const formattedResponse = apiResponse.reply?.trim();
 
-      if (aiResponse.outputs && Array.isArray(aiResponse.outputs)) {
-        const firstOutput = aiResponse.outputs[0];
-        if (firstOutput?.outputs?.[0]?.results?.message?.data?.text) {
-          aiOutputText = firstOutput.outputs[0].results.message.data.text;
-        } else if (firstOutput?.outputs?.[0]?.messages?.[0]?.message) {
-          aiOutputText = firstOutput.outputs[0].messages[0].message;
-        }
+      if (!formattedResponse) {
+        throw new Error("No 'reply' in FastAPI response");
       }
 
-      if (!aiOutputText) {
-        console.error("Unexpected AI Response Format:", JSON.stringify(aiResponse, null, 2));
-        throw new Error("Could not extract message from AI response");
-      }
-
-      const formattedResponse = formatBotResponse(aiOutputText);
-
+      // Save the bot message
       const botMessage = await storage.createMessage(req.user!.id, {
         content: formattedResponse,
         isBot: true,
@@ -220,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-
+  
   app.get("/api/messages", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
