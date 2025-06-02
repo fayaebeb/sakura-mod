@@ -399,7 +399,7 @@ async function processTextFile(textBuffer: Buffer): Promise<string[]> {
  * Process files (PDF/PPTX/DOCX → Images → GPT-4V → AstraDB)
  * Also supports text files (TXT → Chunks → AstraDB)
  */
-export async function processFile(file: UploadedFile, sessionId: string): Promise<void> {
+  export async function processFile(file: UploadedFile, sessionId: string, dbid: string): Promise<void> {
   console.log(`📂 Processing file: ${file.originalname} (${file.mimetype})`);
 
   let extractedTexts: string[] = [];
@@ -503,10 +503,11 @@ export async function processFile(file: UploadedFile, sessionId: string): Promis
     const metadata: ChunkMetadata[] = extractedTexts.map(() => ({
       filename: file.originalname,
       filelink: driveSharedLink || undefined,
+      dbid: dbid, 
     }));
 
     // Store extracted data in AstraDB
-    await storeInAstraDB(extractedTexts, metadata);
+    await storeInAstraDB(extractedTexts, metadata, dbid);
 
     console.log(`📦 Successfully stored ${extractedTexts.length} chunks in AstraDB.`);
   } catch (error) {
@@ -544,33 +545,47 @@ async function chunkTabularData(rows: string[][], filename: string, sheetName?: 
 /**
  * Store extracted data in AstraDB
  */
-export async function storeInAstraDB(extractedTexts: string[], metadata: ChunkMetadata[]): Promise<void> {
-  console.log("📦 Storing data in AstraDB...");
+export async function storeInAstraDB(
+  extractedTexts: string[],
+  metadata: ChunkMetadata[],
+  dbid: string
+): Promise<void> {
+  console.log(`📦 Storing data in AstraDB collection '${dbid}'...`);
+
+  const validDbids = ["files", "ktdb", "ibt"];
+  if (!validDbids.includes(dbid)) {
+    throw new Error(`Invalid dbid '${dbid}' specified`);
+  }
+
   try {
     const documents = extractedTexts.map((text, index) => ({
       $vectorize: text,
       metadata: metadata[index] || {},
     }));
 
-    await db.collection("files").insertMany(documents);
-    console.log("✅ Successfully stored text chunks in AstraDB.");
+    await db.collection(dbid).insertMany(documents);
+    console.log(`✅ Successfully stored text chunks in '${dbid}' collection.`);
   } catch (error) {
     console.error("❌ AstraDB storage error:", error);
-    throw error;  // <---- Ensure errors propagate
+    throw error;
   }
 }
+
 
 
 /**
  * Delete file data from AstraDB
  */
-export async function deleteFileFromAstraDB(filename: string): Promise<void> {
-  console.log(`🗑️ Deleting file data from AstraDB: ${filename}`);
+export async function deleteFileFromAstraDB(
+  filename: string,
+  dbid: "files" | "ktdb" | "ibt"
+): Promise<void> {
+  console.log(`🗑️ Deleting file '${filename}' from AstraDB collection '${dbid}'`);
   try {
-    await db.collection("files").deleteMany({
+    await db.collection(dbid).deleteMany({
       "metadata.filename": filename
     });
-    console.log("✅ Successfully deleted file data from AstraDB");
+    console.log(`✅ Successfully deleted file data from '${dbid}' collection`);
   } catch (error) {
     console.error("❌ Error deleting from AstraDB:", error);
     throw error;
@@ -594,7 +609,7 @@ testAstraDBConnection();
 /**
  * Retrieve the most relevant document chunks from AstraDB using vector search
  */
-export async function retrieveRelevantChunks(query: string, topK: number = 5): Promise<string[]> {
+/*export async function retrieveRelevantChunks(query: string, topK: number = 5): Promise<string[]> {
   console.log(`🔍 Searching AstraDB for relevant chunks: "${query}"`);
 
   try {
@@ -612,4 +627,4 @@ export async function retrieveRelevantChunks(query: string, topK: number = 5): P
     console.error("❌ Error retrieving relevant chunks:", error);
     return [];
   }
-}
+}*/

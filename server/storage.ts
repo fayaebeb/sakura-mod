@@ -90,6 +90,7 @@ export class DatabaseStorage implements IStorage {
         userId,
         ...message,
         fileId: message.fileId ?? null,
+        dbid: message.dbid ?? null,
       })
       .returning();
     return newMessage;
@@ -228,6 +229,7 @@ export class DatabaseStorage implements IStorage {
         sessionId: messages.sessionId,
         userId: messages.userId,
         fileId: messages.fileId,
+        dbid: messages.dbid,
         username: users.username,
       })
       .from(messages)

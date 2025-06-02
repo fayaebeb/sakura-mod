@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Send, Check, Sparkles, Heart, Upload, FileText, X, ChevronRight, MessageSquare } from "lucide-react";
+import { Send, Check, Sparkles, Heart, Upload, FileText, X, ChevronRight, MessageSquare, Database } from "lucide-react";
 import { Message } from "@shared/schema";
 import { nanoid } from "nanoid";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -14,10 +14,22 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const CHAT_SESSION_KEY_PREFIX = "chat_session_id_user_";
 const TUTORIAL_SHOWN_KEY_PREFIX = "tutorial_shown_user_";
 const WARNING_SHOWN_KEY_PREFIX = "warning_shown_user_";
+
+type SendMessagePayload = {
+  content: string;
+  dbid: "files" | "ktdb" | "ibt";
+};
 
 const LoadingDots = () => {
   return (
@@ -97,6 +109,7 @@ export default function ChatInterface() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
+  const [selectedDb, setSelectedDb] = useState<"files" | "ktdb" | "ibt">("files");
   
   const [showWarning, setShowWarning] = useState(false);
 
@@ -187,37 +200,37 @@ export default function ChatInterface() {
     enabled: !!user,
   });
 
-
-
-  const sendMessage = useMutation({
-    mutationFn: async (content: string) => {
-      const res = await apiRequest("POST", "/api/chat", {
-        content,
-        isBot: false,
-        sessionId: "global", // use a constant value
-      });
-      return res.json();
-    },
-    onMutate: async (content: string) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/messages"] });
-
-      const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages"]) || [];
-
-      queryClient.setQueryData<Message[]>(["/api/messages"], [
-        ...previousMessages,
-        {
-          id: parseInt(nanoid(), 36),
-          content,
-          isBot: false,
-          userId: user?.id || 0,
-          timestamp: new Date(),
-          sessionId: "global",
-          fileId: null
+      const sendMessage = useMutation({
+        mutationFn: async ({ content, dbid }: SendMessagePayload) => {
+          const res = await apiRequest("POST", "/api/chat", {
+            content,
+            dbid,
+            isBot: false,
+            sessionId: "global",
+          });
+          return res.json();
         },
-      ]);
+        onMutate: async ({ content }: SendMessagePayload) => {
+          await queryClient.cancelQueries({ queryKey: ["/api/messages"] });
 
-      return { previousMessages };
-    },
+          const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages"]) || [];
+
+          queryClient.setQueryData<Message[]>(["/api/messages"], [
+            ...previousMessages,
+            {
+              id: parseInt(nanoid(), 36),
+              content,
+              isBot: false,
+              userId: user?.id || 0,
+              timestamp: new Date(),
+              sessionId: "global",
+              fileId: null,
+              dbid: selectedDb,
+            },
+          ]);
+
+          return { previousMessages };
+        },
     onSuccess: (newBotMessage: Message) => {
       queryClient.setQueryData<Message[]>(["/api/messages"], (old) => [
         ...(old || []),
@@ -247,14 +260,16 @@ export default function ChatInterface() {
 
   const uploadFiles = useMutation({
     mutationFn: async (filesToUpload: File[]) => {
+      const sessionId = user?.username?.split("@")[0] || "global";
       const formData = new FormData();
-      
-      // Append each file with the name 'files' (for multer.array('files'))
+
+      formData.append("sessionId", sessionId);
+      formData.append("db", selectedDb);
       filesToUpload.forEach(file => {
         formData.append('files', file);
       });
+
       
-      //formData.append('sessionId', sessionId);
 
       // Initialize progress for each file
       const initialProgress: Record<string, number> = {};
@@ -441,7 +456,11 @@ export default function ChatInterface() {
 
     const message = input;
     setInput("");
-    sendMessage.mutate(message);
+
+    sendMessage.mutate({
+      content: message,
+      dbid: selectedDb
+    });
   };
 
   if (isLoadingMessages) {
@@ -552,6 +571,47 @@ export default function ChatInterface() {
           </div>
         </div>
       )}
+      <div className="w-full flex items-center gap-3 mb-4 pl-3">
+        <Database className="w-5 h-5 text-[#16213e] opacity-80" />
+
+        <Select
+          value={selectedDb}
+          onValueChange={(val: "files" | "ktdb" | "ibt") => setSelectedDb(val)}
+        >
+          <SelectTrigger className="w-[220px] border border-[#e8d9c5] bg-white text-[#16213e] text-base font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#16213e]/60 focus:ring-offset-1 transition-all">
+            <SelectValue placeholder="データベースを選択" />
+          </SelectTrigger>
+
+          <SelectContent className="bg-white text-base text-[#16213e] border border-[#e8d9c5] rounded-xl shadow-lg py-2 px-1">
+            <SelectItem
+              value="files"
+              className="px-3 py-2 rounded-md flex items-center gap-2 hover:bg-pink-100 focus:bg-pink-100 text-pink-800 transition-all"
+            >
+              <span className="text-sm font-semibold bg-pink-200 px-2 py-0.5 rounded-full">
+                うごき統計
+              </span>
+            </SelectItem>
+            <SelectItem
+              value="ktdb"
+              className="px-3 py-2 rounded-md flex items-center gap-2 hover:bg-blue-100 focus:bg-blue-100 text-blue-800 transition-all"
+            >
+              <span className="text-sm font-semibold bg-blue-200 px-2 py-0.5 rounded-full">
+                来た来ぬ統計
+              </span>
+            </SelectItem>
+            <SelectItem
+              value="ibt"
+              className="px-3 py-2 rounded-md flex items-center gap-2 hover:bg-green-100 focus:bg-green-100 text-green-800 transition-all"
+            >
+              <span className="text-sm font-semibold bg-green-200 px-2 py-0.5 rounded-full">
+                インバウンド統計
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+
 
       <form onSubmit={handleSubmit} className="p-3 border-t flex gap-2 bg-[#fcfaf5]">
         <Input
@@ -573,6 +633,8 @@ export default function ChatInterface() {
         >
           <Upload className="h-4 w-4 text-[#16213e]" />
         </Button>
+        
+
         <div className="flex-1 relative rounded-md overflow-hidden border border-[#e8d9c5] focus-within:ring-1 focus-within:ring-[#16213e] focus-within:border-[#16213e] bg-white">
           <Textarea
             ref={textareaRef}

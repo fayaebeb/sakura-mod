@@ -47,6 +47,7 @@ export const files = pgTable("files", {
   status: text("status").notNull().default("processing"), // processing, completed, error
   createdAt: timestamp("created_at").defaultNow().notNull(),
   vectorizedContent: text("vectorized_content"), // ✅ Stores extracted text from OpenAI
+  dbid: text("dbid"),
 });
 
 // ✅ **Messages Table**
@@ -60,6 +61,7 @@ export const messages = pgTable("messages", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   sessionId: text("session_id").notNull().references(() => sessions.id), // ✅ Now references `sessions.sessionId`
   fileId: integer("file_id").references(() => files.id),
+  dbid: text("dbid"),
 });
 
 // ✅ **Schemas for Input Validation**
@@ -98,6 +100,7 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   isBot: true,
   sessionId: true,
   fileId: true,
+  dbid: true,
 });
 
 export const insertFileSchema = createInsertSchema(files).pick({
@@ -108,6 +111,7 @@ export const insertFileSchema = createInsertSchema(files).pick({
   sessionId: true,
   status: true,
   vectorizedContent: true, // ✅ Now supports storing extracted text
+  dbid: true,
 });
 
 // ✅ **Type Definitions**

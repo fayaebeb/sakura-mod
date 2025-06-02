@@ -28,6 +28,19 @@ interface MessageWithBot extends Omit<Message, 'isBot'> {
   username?: string; // username is optional (only on user messages)
 }
 
+function getDbidTag(dbid?: string): { label: string; className: string } {
+  switch (dbid) {
+    case "files":
+      return { label: "うごき統計", className: "bg-pink-200 text-pink-800" };
+    case "ktdb":
+      return { label: "来た来ぬ統計", className: "bg-blue-200 text-blue-800" };
+    case "ibt":
+      return { label: "インバウンド統計", className: "bg-green-200 text-green-800" };
+    default:
+      return { label: dbid || "不明", className: "bg-gray-300 text-gray-700" };
+  }
+}
+
 export default function ChatMessage({ message }: { message: MessageWithBot }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -77,35 +90,51 @@ export default function ChatMessage({ message }: { message: MessageWithBot }) {
           </Avatar>
         )}
 
-        <Card
-            className={cn("px-4 py-3 pb-6 max-w-[80%] rounded-lg relative", {
-              "bg-[#FFB7C5] text-black border border-[#FF98A5] shadow-md": !message.isBot,
-              "bg-gray-100 text-black": message.isBot,
-          })}
-        >       
-          {!message.isBot && message.username && (
-            <div className="absolute bottom-1 right-2 text-[10px] bg-gray-200 px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">
-              {message.username.split('@')[0]}
-            </div>
-          )}
-          <div className="break-words text-black">
-            {message.isBot ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {message.content}
-              </ReactMarkdown>
-            ) : (
-              <div className="whitespace-pre-wrap">{message.content}</div>
-            )}
-          </div>
+            <Card
+              className={cn("px-4 py-3 max-w-[80%] rounded-lg relative flex flex-col gap-2", {
+                "bg-[#FFB7C5] text-black border border-[#FF98A5] shadow-md": !message.isBot,
+                "bg-gray-100 text-black": message.isBot,
+              })}
+            >
+              <div className="break-words text-black">
+                {message.isBot ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </ReactMarkdown>
+                ) : (
+                  <div className="whitespace-pre-wrap">{message.content}</div>
+                )}
+              </div>
 
-          <div 
-            className={cn(
-              "absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity",
-              {
-                "opacity-40 hover:opacity-100": message.isBot,
-              }
-            )}
-          >
+              <div className="flex justify-end gap-1 mt-2">
+                {message.username && !message.isBot && (
+                  <div className="text-[10px] bg-gray-200 px-2 py-0.5 rounded-full text-gray-600 font-medium shadow-sm">
+                    {message.username.split('@')[0]}
+                  </div>
+                )}
+                {message.dbid && (() => {
+                  const tag = getDbidTag(message.dbid);
+                  return (
+                    <div
+                      className={cn(
+                        "text-[10px] px-2 py-0.5 rounded-full font-semibold shadow-sm",
+                        tag.className
+                      )}
+                    >
+                      {tag.label}
+                    </div>
+                  );
+                })()}
+              </div>
+
+            <div
+              className={cn(
+                "absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity",
+                {
+                  "opacity-40 hover:opacity-100": message.isBot,
+                }
+              )}
+            >
             <AlertDialog>
               <Tooltip>
                 <TooltipTrigger asChild>
