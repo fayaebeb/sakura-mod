@@ -59,7 +59,7 @@ export default function HomePage() {
   const { toast } = useToast();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const isMobile = useIsMobile();
-  const [sortBy, setSortBy] = useState<"latest" | "oldest">("latest");
+  const [sortBy, setSortBy] = useState<"latest" | "oldest">("oldest");
   const [dbFilter, setDbFilter] = useState<"files" | "ktdb" | "ibt" | "all">(
     "all",
   );
