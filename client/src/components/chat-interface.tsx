@@ -4,7 +4,18 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Send, Check, Sparkles, Heart, Upload, FileText, X, ChevronRight, MessageSquare, Database } from "lucide-react";
+import {
+  Send,
+  Check,
+  Sparkles,
+  Heart,
+  Upload,
+  FileText,
+  X,
+  ChevronRight,
+  MessageSquare,
+  Database,
+} from "lucide-react";
 import { Message } from "@shared/schema";
 import { nanoid } from "nanoid";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -21,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+type MessageWithUsername = Message & { username: string };
 
 const CHAT_SESSION_KEY_PREFIX = "chat_session_id_user_";
 const TUTORIAL_SHOWN_KEY_PREFIX = "tutorial_shown_user_";
@@ -34,9 +46,18 @@ type SendMessagePayload = {
 const LoadingDots = () => {
   return (
     <div className="flex items-center gap-1.5 text-primary">
-      <div className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
-      <div className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
-      <div className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+      <div
+        className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce"
+        style={{ animationDelay: "0ms" }}
+      />
+      <div
+        className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce"
+        style={{ animationDelay: "150ms" }}
+      />
+      <div
+        className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce"
+        style={{ animationDelay: "300ms" }}
+      />
     </div>
   );
 };
@@ -46,13 +67,15 @@ const Tutorial = ({ onClose }: { onClose: () => void }) => {
   const steps = [
     {
       title: "ようこそ！",
-      description: "「桜AI」は、PCKKにおいて、情報提供や質問への回答を行うAIです。私の役割は、さまざまなトピックについて正確で分かりやすい情報を提供し、ユーザーのリクエストに的確にお応えすることです。たとえば、データに基づくご質問には、社内資料や外部情報を参照しながら丁寧にお答えします。",
-      icon: <Sparkles className="h-5 w-5 text-pink-400" />
+      description:
+        "「桜AI」は、PCKKにおいて、情報提供や質問への回答を行うAIです。私の役割は、さまざまなトピックについて正確で分かりやすい情報を提供し、ユーザーのリクエストに的確にお応えすることです。たとえば、データに基づくご質問には、社内資料や外部情報を参照しながら丁寧にお答えします。",
+      icon: <Sparkles className="h-5 w-5 text-pink-400" />,
     },
     {
       title: "楽しくお話ししましょう！",
-      description: "「桜AI」は、OpenAIの生成モデル「ChatGPT-4o」を使用しています。社内の全国うごき統計に関する営業資料や、人流に関する社内ミニ講座の内容を基礎データとして取り込み、さらにWikipediaやGoogleのAPIを通じてインターネット上の情報も収集しています。これらの情報をもとに、最適な回答を生成しています。",
-      icon: <Heart className="h-5 w-5 text-red-400" />
+      description:
+        "「桜AI」は、OpenAIの生成モデル「ChatGPT-4o」を使用しています。社内の全国うごき統計に関する営業資料や、人流に関する社内ミニ講座の内容を基礎データとして取り込み、さらにWikipediaやGoogleのAPIを通じてインターネット上の情報も収集しています。これらの情報をもとに、最適な回答を生成しています。",
+      icon: <Heart className="h-5 w-5 text-red-400" />,
     },
   ];
   return (
@@ -69,9 +92,13 @@ const Tutorial = ({ onClose }: { onClose: () => void }) => {
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
             {steps[step - 1].icon}
           </div>
-          <h3 className="text-xl font-semibold text-[#16213e]">{steps[step - 1].title}</h3>
+          <h3 className="text-xl font-semibold text-[#16213e]">
+            {steps[step - 1].title}
+          </h3>
         </div>
-        <p className="text-muted-foreground leading-relaxed">{steps[step - 1].description}</p>
+        <p className="text-muted-foreground leading-relaxed">
+          {steps[step - 1].description}
+        </p>
         <div className="flex justify-between items-center pt-4">
           <div className="flex gap-2">
             {steps.map((_, idx) => (
@@ -102,15 +129,29 @@ const Tutorial = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-export default function ChatInterface() {
+export default function ChatInterface({
+  sortBy,
+  dbFilter,
+  usernameFilter,
+  messageSearch,
+}: {
+  sortBy: "latest" | "oldest";
+  dbFilter: "files" | "ktdb" | "ibt" | "all";
+  usernameFilter: string;
+  messageSearch: string;
+}) {
   const [input, setInput] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [fileUploadProgress, setFileUploadProgress] = useState<Record<string, number>>({});
+  const [fileUploadProgress, setFileUploadProgress] = useState<
+    Record<string, number>
+  >({});
   const { user } = useAuth();
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
-  const [selectedDb, setSelectedDb] = useState<"files" | "ktdb" | "ibt">("files");
-  
+  const [selectedDb, setSelectedDb] = useState<"files" | "ktdb" | "ibt">(
+    "files",
+  );
+
   const [showWarning, setShowWarning] = useState(false);
 
   useEffect(() => {
@@ -125,7 +166,6 @@ export default function ChatInterface() {
       setShowWarning(true);
     }
   }, [user]);
-
 
   const [showTutorial, setShowTutorial] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -144,11 +184,11 @@ export default function ChatInterface() {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
@@ -166,12 +206,11 @@ export default function ChatInterface() {
     };
   }, []);
 
-
   const handleCloseTutorial = () => {
     if (!user) return;
     const tutorialShownKey = `${TUTORIAL_SHOWN_KEY_PREFIX}${user.id}`;
     setShowTutorial(false);
-    localStorage.setItem(tutorialShownKey, 'true');
+    localStorage.setItem(tutorialShownKey, "true");
 
     // Try to focus again after tutorial closes
     setTimeout(() => {
@@ -187,50 +226,56 @@ export default function ChatInterface() {
     setShowWarning(false);
   };
 
-
-  const { data: messages = [], isLoading: isLoadingMessages } = useQuery<Message[]>({
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery<
+    MessageWithUsername[]
+  >({
     queryKey: ["/api/messages"],
     queryFn: async () => {
       const res = await fetch(`/api/messages`, {
         credentials: "include",
       });
-      if (!res.ok) throw new Error("メッセージを取ってこられなかったよ...ごめんね！");
+      if (!res.ok)
+        throw new Error("メッセージを取ってこられなかったよ...ごめんね！");
       return res.json();
     },
     enabled: !!user,
   });
 
-      const sendMessage = useMutation({
-        mutationFn: async ({ content, dbid }: SendMessagePayload) => {
-          const res = await apiRequest("POST", "/api/chat", {
+  const sendMessage = useMutation({
+    mutationFn: async ({ content, dbid }: SendMessagePayload) => {
+      const res = await apiRequest("POST", "/api/chat", {
+        content,
+        dbid,
+        isBot: false,
+        sessionId: "global",
+      });
+      return res.json();
+    },
+    onMutate: async ({ content }: SendMessagePayload) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/messages"] });
+
+      const previousMessages =
+        queryClient.getQueryData<Message[]>(["/api/messages"]) || [];
+
+      queryClient.setQueryData<Message[]>(
+        ["/api/messages"],
+        [
+          ...previousMessages,
+          {
+            id: parseInt(nanoid(), 36),
             content,
-            dbid,
             isBot: false,
+            userId: user?.id || 0,
+            timestamp: new Date(),
             sessionId: "global",
-          });
-          return res.json();
-        },
-        onMutate: async ({ content }: SendMessagePayload) => {
-          await queryClient.cancelQueries({ queryKey: ["/api/messages"] });
+            fileId: null,
+            dbid: selectedDb,
+          },
+        ],
+      );
 
-          const previousMessages = queryClient.getQueryData<Message[]>(["/api/messages"]) || [];
-
-          queryClient.setQueryData<Message[]>(["/api/messages"], [
-            ...previousMessages,
-            {
-              id: parseInt(nanoid(), 36),
-              content,
-              isBot: false,
-              userId: user?.id || 0,
-              timestamp: new Date(),
-              sessionId: "global",
-              fileId: null,
-              dbid: selectedDb,
-            },
-          ]);
-
-          return { previousMessages };
-        },
+      return { previousMessages };
+    },
     onSuccess: (newBotMessage: Message) => {
       queryClient.setQueryData<Message[]>(["/api/messages"], (old) => [
         ...(old || []),
@@ -240,7 +285,8 @@ export default function ChatInterface() {
         title: "メッセージ送信したよ！",
         description: (
           <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-green-500" /> メッセージ届いたよ！ありがとう♡
+            <Check className="h-4 w-4 text-green-500" />{" "}
+            メッセージ届いたよ！ありがとう♡
           </div>
         ),
         duration: 2000,
@@ -265,72 +311,73 @@ export default function ChatInterface() {
 
       formData.append("sessionId", sessionId);
       formData.append("db", selectedDb);
-      filesToUpload.forEach(file => {
-        formData.append('files', file);
+      filesToUpload.forEach((file) => {
+        formData.append("files", file);
       });
-
-      
 
       // Initialize progress for each file
       const initialProgress: Record<string, number> = {};
-      filesToUpload.forEach(file => {
+      filesToUpload.forEach((file) => {
         initialProgress[file.name] = 0;
       });
       setFileUploadProgress(initialProgress);
 
       const xhr = new XMLHttpRequest();
-      
+
       // Track upload progress
-      xhr.upload.addEventListener('progress', (event) => {
+      xhr.upload.addEventListener("progress", (event) => {
         if (event.lengthComputable) {
-          const percentComplete = Math.round((event.loaded / event.total) * 100);
-          
+          const percentComplete = Math.round(
+            (event.loaded / event.total) * 100,
+          );
+
           // Update progress for all files (since we can't track individual files in a single request)
           const updatedProgress = { ...initialProgress };
-          filesToUpload.forEach(file => {
+          filesToUpload.forEach((file) => {
             updatedProgress[file.name] = percentComplete;
           });
-          
+
           setFileUploadProgress(updatedProgress);
         }
       });
 
       return new Promise<any>((resolve, reject) => {
-        xhr.open('POST', '/api/upload');
+        xhr.open("POST", "/api/upload");
         xhr.withCredentials = true;
-        
+
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const response = JSON.parse(xhr.responseText);
               resolve(response);
             } catch (error) {
-              reject(new Error('Invalid response format'));
+              reject(new Error("Invalid response format"));
             }
           } else {
-            reject(new Error('ファイルのアップロードに失敗しました'));
+            reject(new Error("ファイルのアップロードに失敗しました"));
           }
         };
-        
+
         xhr.onerror = () => {
-          reject(new Error('Network error during file upload'));
+          reject(new Error("Network error during file upload"));
         };
-        
+
         xhr.send(formData);
       });
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
-      
+
       // Clear file progress and selected files
       setFileUploadProgress({});
       setFiles([]);
-      
+
       toast({
         title: "ファイルのアップロードが完了しました！",
         description: (
           <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-green-500" /> ファイルを処理しています...
+            <Check className="h-4 w-4 text-green-500" />{" "}
+            ファイルを処理しています...
           </div>
         ),
         duration: 3000,
@@ -339,7 +386,8 @@ export default function ChatInterface() {
     onError: () => {
       toast({
         title: "ファイルのアップロードに失敗しました",
-        description: "対応しているファイル形式（PDF、PPT、PPTX、DOCX、TXT、CSV、XLSX、XLS）で再試行してください。",
+        description:
+          "対応しているファイル形式（PDF、PPT、PPTX、DOCX、TXT、CSV、XLSX、XLS）で再試行してください。",
         variant: "destructive",
       });
       setFiles([]);
@@ -358,29 +406,34 @@ export default function ChatInterface() {
     if (selectedFiles.length === 0) return;
 
     const allowedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation', 
-      'application/vnd.ms-powerpoint', 
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-      'application/vnd.ms-excel', // .xls
-      'text/csv',
-      'text/plain',
-      '.txt'
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.ms-excel", // .xls
+      "text/csv",
+      "text/plain",
+      ".txt",
     ];
 
     // Filter out unsupported file types
-    const validFiles = selectedFiles.filter(file => allowedTypes.includes(file.type));
-    const invalidFiles = selectedFiles.filter(file => !allowedTypes.includes(file.type));
-    
+    const validFiles = selectedFiles.filter((file) =>
+      allowedTypes.includes(file.type),
+    );
+    const invalidFiles = selectedFiles.filter(
+      (file) => !allowedTypes.includes(file.type),
+    );
+
     if (invalidFiles.length > 0) {
       toast({
         title: `${invalidFiles.length} unsupported file(s) rejected`,
-        description: "Please upload PDF, PPT, PPTX, DOCX, TXT, CSV, XLSX, or XLS files",
+        description:
+          "Please upload PDF, PPT, PPTX, DOCX, TXT, CSV, XLSX, or XLS files",
         variant: "destructive",
       });
     }
-    
+
     if (validFiles.length > 0) {
       setFiles(validFiles);
       uploadFiles.mutate(validFiles);
@@ -411,21 +464,20 @@ export default function ChatInterface() {
     return () => clearTimeout(timeout);
   }, [messages?.length, sendMessage.isPending, uploadFiles.isPending]);
 
-
   // Auto-resize textarea based on content
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
     const adjustHeight = () => {
-      textarea.style.height = 'auto';
+      textarea.style.height = "auto";
       textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
     };
 
     adjustHeight();
 
     return () => {
-      textarea.style.height = 'auto';
+      textarea.style.height = "auto";
     };
   }, [input]);
 
@@ -450,6 +502,35 @@ export default function ChatInterface() {
     handleFileSelection(droppedFiles);
   }, []);
 
+  const filteredMessages = messages.filter((msg) => {
+    const dbMatches = dbFilter === "all" || msg.dbid === dbFilter;
+    const usernameMatches =
+      !usernameFilter ||
+      msg.username?.toLowerCase().includes(usernameFilter.toLowerCase()) ||
+      msg.userId?.toString().includes(usernameFilter);
+
+    const messageMatches =
+      !messageSearch ||
+      msg.content?.toLowerCase().includes(messageSearch.toLowerCase());
+
+    return dbMatches && usernameMatches && messageMatches;
+  });
+
+  const sortedMessages: Message[] = [...filteredMessages].sort((a, b) => {
+    switch (sortBy) {
+      case "latest":
+        return (
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+      case "oldest":
+        return (
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      default:
+        return 0;
+    }
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || sendMessage.isPending) return;
@@ -459,7 +540,7 @@ export default function ChatInterface() {
 
     sendMessage.mutate({
       content: message,
-      dbid: selectedDb
+      dbid: selectedDb,
     });
   };
 
@@ -467,7 +548,9 @@ export default function ChatInterface() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
         <LoadingDots />
-        <p className="text-sm text-muted-foreground animate-pulse">チャット履歴をお届け中...ちょっと待っててね！</p>
+        <p className="text-sm text-muted-foreground animate-pulse">
+          チャット履歴をお届け中...ちょっと待っててね！
+        </p>
       </div>
     );
   }
@@ -479,8 +562,6 @@ export default function ChatInterface() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-
-
       {showTutorial && <Tutorial onClose={handleCloseTutorial} />}
 
       {isDragging && (
@@ -491,65 +572,78 @@ export default function ChatInterface() {
               <FileText className="h-12 w-12" />
               <FileText className="h-10 w-10" />
             </div>
-            <p className="text-lg font-medium">ファイルをドロップして複数アップロード</p>
-            <p className="text-sm text-muted-foreground">PDF, PPT, PPTX, DOCX, TXT, CSV, XLSX, XLS</p>
+            <p className="text-lg font-medium">
+              ファイルをドロップして複数アップロード
+            </p>
+            <p className="text-sm text-muted-foreground">
+              PDF, PPT, PPTX, DOCX, TXT, CSV, XLSX, XLS
+            </p>
           </div>
         </div>
       )}
 
-      <ScrollArea 
-        ref={scrollAreaRef} 
+      <ScrollArea
+        ref={scrollAreaRef}
         className={cn("flex-1 px-4 py-3", isDragging && "pointer-events-none")}
       >
         <div className="space-y-5">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 px-4">
               <div className="w-16 h-16 rounded-full bg-[#f8eee2] flex items-center justify-center mb-4">
-                <img src="/images/sakura-mod-logo.png"
+                <img
+                  src="/images/sakura-mod-logo.png"
                   alt="Descriptive Alt Text"
                   className="h-20 w-20 object-contain"
                 />
               </div>
-              <h3 className="text-lg font-medium text-center mb-2">桜AIデータ入力パネル</h3>
+              <h3 className="text-lg font-medium text-center mb-2">
+                桜AIデータ入力パネル
+              </h3>
               <p className="text-center text-muted-foreground text-sm max-w-md">
-                📝テキストや🔗URLの入力、📁ファイルのアップロードができます。<br />
+                📝テキストや🔗URLの入力、📁ファイルのアップロードができます。
+                <br />
                 ❗注意：あいさつや誤情報などは入力しないでください。AIに記録されてしまいます。
               </p>
-
-
-
             </div>
           )}
-          {messages.map((message) => (
+
+          {sortedMessages.map((message) => (
             <ChatMessage key={message.id} message={message} />
           ))}
+
           {(sendMessage.isPending || uploadFiles.isPending) && (
             <div className="flex flex-col items-center gap-2 p-4 bg-[#f8eee2]/30 rounded-lg">
               <LoadingDots />
               <p className="text-sm text-muted-foreground">
-                {uploadFiles.isPending ? "ファイルを処理中です..." : "桜AIがデータを処理しています...！"}
+                {uploadFiles.isPending
+                  ? "ファイルを処理中です..."
+                  : "桜AIがデータを処理しています...！"}
               </p>
             </div>
           )}
-          
+
           {/* Show file upload progress for each file */}
           {Object.keys(fileUploadProgress).length > 0 && (
             <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-              <h4 className="text-sm font-medium">ファイルのアップロード進捗:</h4>
-              {Object.entries(fileUploadProgress).map(([fileName, progress]) => (
-                <div key={fileName} className="space-y-1">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span className="truncate max-w-[180px]">{fileName}</span>
-                    <span>{progress}%</span>
+              <h4 className="text-sm font-medium">
+                ファイルのアップロード進捗:
+              </h4>
+              {Object.entries(fileUploadProgress).map(
+                ([fileName, progress]) => (
+                  <div key={fileName} className="space-y-1">
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span className="truncate max-w-[180px]">{fileName}</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-300 ease-in-out"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary transition-all duration-300 ease-in-out" 
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                ),
+              )}
             </div>
           )}
         </div>
@@ -611,9 +705,10 @@ export default function ChatInterface() {
         </Select>
       </div>
 
-
-
-      <form onSubmit={handleSubmit} className="p-3 border-t flex gap-2 bg-[#fcfaf5]">
+      <form
+        onSubmit={handleSubmit}
+        className="p-3 border-t flex gap-2 bg-[#fcfaf5]"
+      >
         <Input
           type="file"
           id="file-upload"
@@ -626,14 +721,13 @@ export default function ChatInterface() {
           type="button"
           variant="outline"
           size="icon"
-          onClick={() => document.getElementById('file-upload')?.click()}
+          onClick={() => document.getElementById("file-upload")?.click()}
           disabled={uploadFiles.isPending}
           className="bg-white hover:bg-gray-100 border-[#e8d9c5]"
           title="複数のファイルをアップロード"
         >
           <Upload className="h-4 w-4 text-[#16213e]" />
         </Button>
-        
 
         <div className="flex-1 relative rounded-md overflow-hidden border border-[#e8d9c5] focus-within:ring-1 focus-within:ring-[#16213e] focus-within:border-[#16213e] bg-white">
           <Textarea
@@ -641,13 +735,16 @@ export default function ChatInterface() {
             autoFocus
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={   isMobileDevice     ? "📝 テキスト 🔗 URL 📁 ファイル" : "📝 テキスト 🔗 URL 📁 ファイルをここに入力・アップロードできます" }
+            placeholder={
+              isMobileDevice
+                ? "📝 テキスト 🔗 URL 📁 ファイル"
+                : "📝 テキスト 🔗 URL 📁 ファイルをここに入力・アップロードできます"
+            }
             className="flex-1 min-h-[40px] max-h-[150px] resize-none overflow-y-auto border-0 focus-visible:ring-0 px-3 py-2 text-sm sm:text-base"
-
-            style={{ height: 'auto' }}
+            style={{ height: "auto" }}
             onKeyDown={(e) => {
               // On non-mobile devices, Enter (without Shift) will submit the message
-              if (!isMobileDevice && e.key === 'Enter' && !e.shiftKey) {
+              if (!isMobileDevice && e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 if (input.trim() && !sendMessage.isPending) {
                   handleSubmit(e);
@@ -663,8 +760,6 @@ export default function ChatInterface() {
         >
           <Send className="h-5 w-5" />
         </Button>
-
-
       </form>
     </Card>
   );

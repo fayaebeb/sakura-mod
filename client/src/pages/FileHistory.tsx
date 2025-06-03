@@ -3,9 +3,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { useState } from "react";
-import { 
-  ArrowLeft, FileText, CheckCircle, XCircle, Clock, Trash2, 
-  Search, Home, File, Filter, SortAsc
+import {
+  ArrowLeft,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Trash2,
+  Search,
+  Home,
+  File,
+  Filter,
+  SortAsc,
+  Database,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -40,9 +50,26 @@ interface FileRecord {
   size: number;
   status: string;
   createdAt: string;
+  dbid?: string;
   user: {
     username: string;
   } | null;
+}
+
+function getDbidTag(dbid?: string): { label: string; className: string } {
+  switch (dbid) {
+    case "files":
+      return { label: "うごき統計", className: "bg-pink-200 text-pink-800" };
+    case "ktdb":
+      return { label: "来た来ぬ統計", className: "bg-blue-200 text-blue-800" };
+    case "ibt":
+      return {
+        label: "インバウンド統計",
+        className: "bg-green-200 text-green-800",
+      };
+    default:
+      return { label: dbid || "不明", className: "bg-gray-300 text-gray-700" };
+  }
 }
 
 export default function FileHistory() {
@@ -52,6 +79,9 @@ export default function FileHistory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("latest");
+  const [dbFilter, setDbFilter] = useState<"files" | "ktdb" | "ibt" | "all">(
+    "all",
+  );
 
   const { data: files = [], isLoading } = useQuery<FileRecord[]>({
     queryKey: ["/api/files"],
@@ -67,16 +97,16 @@ export default function FileHistory() {
   const deleteMutation = useMutation({
     mutationFn: async (fileId: number) => {
       const response = await fetch(`/api/files/${fileId}`, {
-        method: 'DELETE',
-        credentials: 'include',
+        method: "DELETE",
+        credentials: "include",
       });
       if (!response.ok) {
-        throw new Error('ファイルの削除に失敗しました');
+        throw new Error("ファイルの削除に失敗しました");
       }
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/files"] });
       toast({
         title: "成功",
         description: "ファイルを削除しました",
@@ -107,13 +137,41 @@ export default function FileHistory() {
   function getStatusBadge(status: string) {
     switch (status) {
       case "completed":
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">完了</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="bg-green-50 text-green-700 border-green-200"
+          >
+            完了
+          </Badge>
+        );
       case "error":
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">エラー</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="bg-red-50 text-red-700 border-red-200"
+          >
+            エラー
+          </Badge>
+        );
       case "processing":
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">処理中</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="bg-yellow-50 text-yellow-700 border-yellow-200"
+          >
+            処理中
+          </Badge>
+        );
       default:
-        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">{status}</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="bg-gray-50 text-gray-700 border-gray-200"
+          >
+            {status}
+          </Badge>
+        );
     }
   }
 
@@ -122,9 +180,17 @@ export default function FileHistory() {
       return <FileText className="h-5 w-5 text-blue-500" />;
     } else if (contentType.includes("pdf")) {
       return <FileText className="h-5 w-5 text-red-500" />;
-    } else if (contentType.includes("spreadsheet") || contentType.includes("excel") || contentType.includes("csv")) {
+    } else if (
+      contentType.includes("spreadsheet") ||
+      contentType.includes("excel") ||
+      contentType.includes("csv")
+    ) {
       return <FileText className="h-5 w-5 text-green-600" />;
-    } else if (contentType.includes("text") || contentType.includes("javascript") || contentType.includes("json")) {
+    } else if (
+      contentType.includes("text") ||
+      contentType.includes("javascript") ||
+      contentType.includes("json")
+    ) {
       return <FileText className="h-5 w-5 text-purple-500" />;
     } else {
       return <File className="h-5 w-5 text-gray-500" />;
@@ -141,22 +207,30 @@ export default function FileHistory() {
 
   // Filter and sort files
   const filteredFiles = files
-    .filter(file => {
+    .filter((file) => {
       // Apply search filter
-      const searchMatch = searchQuery === "" || 
+      const searchMatch =
+        searchQuery === "" ||
         file.originalName.toLowerCase().includes(searchQuery.toLowerCase());
 
       // Apply status filter
-      const statusMatch = statusFilter === "all" || file.status === statusFilter;
+      const statusMatch =
+        statusFilter === "all" || file.status === statusFilter;
 
-      return searchMatch && statusMatch;
+      const dbMatch = dbFilter === "all" || file.dbid === dbFilter;
+
+      return searchMatch && statusMatch && dbMatch;
     })
     .sort((a, b) => {
       // Sort by selected criteria
       if (sortBy === "latest") {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       } else if (sortBy === "oldest") {
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        return (
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
       } else if (sortBy === "name") {
         return a.originalName.localeCompare(b.originalName);
       } else if (sortBy === "size") {
@@ -206,54 +280,70 @@ export default function FileHistory() {
           </div>
 
           {/* Filter and search controls */}
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="ファイル名で検索..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            {/* Filter + Sort aligned in a row on mobile */}
-            <div className="flex flex-row sm:flex-row gap-2 sm:w-auto w-full">
-              <div className="relative flex-1 sm:flex-initial">
-                <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-[140px] pl-9">
-                    <SelectValue placeholder="ステータス" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべて</SelectItem>
-                    <SelectItem value="completed">完了</SelectItem>
-                    <SelectItem value="processing">処理中</SelectItem>
-                    <SelectItem value="error">エラー</SelectItem>
-                  </SelectContent>
-                </Select>
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="ファイル名で検索..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
               </div>
 
-              <div className="relative flex-1 sm:flex-initial">
-                <SortAsc className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-full sm:w-[140px] pl-9">
-                    <SelectValue placeholder="並び替え" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="latest">最新順</SelectItem>
-                    <SelectItem value="oldest">古い順</SelectItem>
-                    <SelectItem value="name">名前順</SelectItem>
-                    <SelectItem value="size">サイズ順</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-row sm:flex-row gap-2 sm:w-auto w-full">
+                <div className="relative flex-1 sm:flex-initial">
+                  <Database className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Select
+                    value={dbFilter}
+                    onValueChange={(val) => setDbFilter(val as typeof dbFilter)}
+                  >
+                    <SelectTrigger className="w-full sm:w-[140px] pl-9">
+                      <SelectValue placeholder="データベース" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="files">うごき統計</SelectItem>
+                      <SelectItem value="ktdb">来た来ぬ統計</SelectItem>
+                      <SelectItem value="ibt">インバウンド統計</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="relative flex-1 sm:flex-initial">
+                  <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-[140px] pl-9">
+                      <SelectValue placeholder="ステータス" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="completed">完了</SelectItem>
+                      <SelectItem value="processing">処理中</SelectItem>
+                      <SelectItem value="error">エラー</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="relative flex-1 sm:flex-initial">
+                  <SortAsc className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-full sm:w-[140px] pl-9">
+                      <SelectValue placeholder="並び替え" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="latest">最新順</SelectItem>
+                      <SelectItem value="oldest">古い順</SelectItem>
+                      <SelectItem value="name">名前順</SelectItem>
+                      <SelectItem value="size">サイズ順</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-        </div>
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-auto pb-6 px-4">
@@ -272,38 +362,70 @@ export default function FileHistory() {
           ) : (
             <div className="grid gap-4 mt-4">
               {filteredFiles.map((file) => (
-                <Card key={file.id} className="overflow-hidden transition-all hover:shadow-md">
-                  <div className={`flex ${isMobile ? "flex-col" : "flex-row"} p-4 gap-4`}>
+                <Card
+                  key={file.id}
+                  className="overflow-hidden transition-all hover:shadow-md"
+                >
+                  <div
+                    className={`flex ${isMobile ? "flex-col" : "flex-row"} p-4 gap-4`}
+                  >
                     {/* File type and status icons */}
-                    <div className={`flex ${isMobile ? "flex-row justify-between" : "flex-col"} items-center justify-center w-10 min-w-10`}>
+                    <div
+                      className={`flex ${isMobile ? "flex-row justify-between" : "flex-col"} items-center justify-center w-10 min-w-10`}
+                    >
                       {getFileTypeIcon(file.contentType)}
                       {getStatusIcon(file.status)}
                     </div>
 
                     {/* File info */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-base text-primary truncate" title={file.originalName}>
+                      <h3
+                        className="font-medium text-base text-primary truncate"
+                        title={file.originalName}
+                      >
                         {file.originalName}
                       </h3>
-                      <div className={`text-sm text-muted-foreground ${isMobile ? "flex flex-col gap-1" : ""}`}>
+                      <div
+                        className={`text-sm text-muted-foreground ${isMobile ? "flex flex-col gap-1" : ""}`}
+                      >
                         <div className="flex items-center gap-2 flex-wrap">
                           <span>{formatFileSize(file.size)}</span>
                           {!isMobile && <span className="mx-1">•</span>}
                           <span>{format(new Date(file.createdAt), "PPp")}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap mt-1">
-                          <span>アップロード者: {file.user ? file.user.username.split('@')[0] : '不明'}</span>
+                          <span className="text-sm text-muted-foreground">
+                            データベース:
+                          </span>
+                          {(() => {
+                            const tag = getDbidTag(file.dbid);
+                            return (
+                              <span
+                                className={`text-xs font-medium px-2 py-0.5 rounded ${tag.className}`}
+                              >
+                                {tag.label}
+                              </span>
+                            );
+                          })()}
+                          <span className="text-sm text-muted-foreground">
+                            アップロード者:{" "}
+                            {file.user
+                              ? file.user.username.split("@")[0]
+                              : "不明"}
+                          </span>
                           {getStatusBadge(file.status)}
                         </div>
                       </div>
                     </div>
 
                     {/* Actions */}
-                    <div className={`flex ${isMobile ? "justify-end mt-2" : "items-center"} gap-2`}>
+                    <div
+                      className={`flex ${isMobile ? "justify-end mt-2" : "items-center"} gap-2`}
+                    >
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="icon"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             aria-label="ファイルを削除"

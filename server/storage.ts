@@ -171,6 +171,7 @@ export class DatabaseStorage implements IStorage {
         contentType: files.contentType,
         size: files.size,
         vectorizedContent: files.vectorizedContent,
+        dbid: files.dbid,
         user_username: users.username,
       })
       .from(files)
@@ -188,6 +189,7 @@ export class DatabaseStorage implements IStorage {
       contentType: row.contentType,
       size: row.size,
       vectorizedContent: row.vectorizedContent,
+      dbid: row.dbid,
       user: row.user_username ? { username: row.user_username } : null
     }));
   }

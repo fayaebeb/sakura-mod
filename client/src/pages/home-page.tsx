@@ -39,11 +39,19 @@ import {
   AlignJustify,
   Settings,
   UserPlus,
+  SortAsc,
+  Database,
+  Search,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
-
-
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
 export default function HomePage() {
   const { user, logoutMutation } = useAuth();
@@ -51,17 +59,24 @@ export default function HomePage() {
   const { toast } = useToast();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const isMobile = useIsMobile();
-
+  const [sortBy, setSortBy] = useState<"latest" | "oldest">("latest");
+  const [dbFilter, setDbFilter] = useState<"files" | "ktdb" | "ibt" | "all">(
+    "all",
+  );
+  const [usernameFilter, setUsernameFilter] = useState<string>("");
+  const [messageSearch, setMessageSearch] = useState<string>("");
 
   const renderHeader = () => (
-          <header className="sticky top-0 z-20 border-b border-[#f9dcd0] bg-gradient-to-r from-[#ffe0e9] via-[#ffd5c2] to-[#ffe4dc] shadow-sm">
-
-        <div className="container mx-auto px-4 flex items-center justify-between">
-
+    <header className="sticky top-0 z-20 border-b border-[#f9dcd0] bg-gradient-to-r from-[#ffe0e9] via-[#ffd5c2] to-[#ffe4dc] shadow-sm">
+      <div className="container mx-auto px-4 flex items-center justify-between">
         {/* Left: Logo */}
         <div className="flex items-center min-w-[80px] justify-start">
           <motion.div whileHover={{ scale: 1.05 }}>
-            <img src="/images/pclogo.png" alt="Company Logo" className="h-5 sm:h-10" />
+            <img
+              src="/images/pclogo.png"
+              alt="Company Logo"
+              className="h-5 sm:h-10"
+            />
           </motion.div>
         </div>
 
@@ -77,94 +92,89 @@ export default function HomePage() {
         </div>
 
         {/* Right: Username + AlignJustify */}
-            <div className="flex items-center min-w-[80px] justify-end gap-2">
-              {/* Username Display */}
-              <div className="border border-[#f7cfd4] bg-gradient-to-r from-[#ffe9ec] via-[#ffe0d3] to-[#fff0e6] text-[#a0525a] px-4 py-1 rounded-full text-sm font-medium flex items-center gap-2">
-                <motion.span
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  {displayName}
-                </motion.span>
+        <div className="flex items-center min-w-[80px] justify-end gap-2">
+          {/* Username Display */}
+          <div className="border border-[#f7cfd4] bg-gradient-to-r from-[#ffe9ec] via-[#ffe0d3] to-[#fff0e6] text-[#a0525a] px-4 py-1 rounded-full text-sm font-medium flex items-center gap-2">
+            <motion.span
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              {displayName}
+            </motion.span>
 
-                {/* Badge - hidden on small screens */}
-                <Badge className="hidden sm:inline bg-[#fce2e6] text-[#b85661] border border-[#f7cfd4] rounded-full px-2 py-0.5 text-xs">
+            {/* Badge - hidden on small screens */}
+            <Badge className="hidden sm:inline bg-[#fce2e6] text-[#b85661] border border-[#f7cfd4] rounded-full px-2 py-0.5 text-xs">
+              モデレーター
+            </Badge>
+          </div>
+
+          {/* AlignJustify Menu - moved inside flex container */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="group text-[#c4626d] border border-[#f6cfd2] shadow-sm hover:shadow-md hover:bg-[#ffeef1] focus:ring-2 focus:ring-[#f7bfc6] transition-transform duration-200 ease-in-out will-change-transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <AlignJustify className="h-5 w-5 text-[#b14c5c] group-hover:text-[#e35e71]" />
+              </Button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent
+              align="end"
+              className="w-64 sm:w-72 border-[#f5c7cd] bg-gradient-to-br from-[#fff4f5]/95 via-[#ffe9ec]/95 to-[#fff0e6]/95 backdrop-blur-sm"
+            >
+              <DropdownMenuLabel className="text-[#b35a68] text-base font-semibold px-4 py-2">
+                メニュー
+              </DropdownMenuLabel>
+
+              <DropdownMenuSeparator className="bg-[#fcdde3]" />
+
+              <Link href="/admin">
+                <DropdownMenuItem className="cursor-pointer text-[#a9546b] hover:bg-[#ffe7ed] focus:bg-[#ffe7ed] focus:text-[#bf3e55] px-4 py-3 text-base">
+                  <UserPlus className="h-12 w-12 text-[#d76680]" />
+                  招待管理
+                </DropdownMenuItem>
+              </Link>
+
+              <Link href="/moderator">
+                <DropdownMenuItem className="cursor-pointer text-[#a96452] hover:bg-[#ffebdb] focus:bg-[#ffebdb] focus:text-[#b85e47] px-4 py-3 text-base">
+                  <ShieldAlert className="h-8 w-8 text-[#d27a5a]" />
                   モデレーター
-                </Badge>
-              </div>
+                </DropdownMenuItem>
+              </Link>
 
+              <Link href="/files">
+                <DropdownMenuItem className="cursor-pointer text-[#6f5eaa] hover:bg-[#f0e9ff] focus:bg-[#f0e9ff] focus:text-[#5c4d98] px-4 py-3 text-base">
+                  <FileText className="h-8 w-8 text-[#937ccf]" />
+                  ファイル履歴
+                </DropdownMenuItem>
+              </Link>
 
+              <DropdownMenuSeparator className="bg-[#fcdde3]" />
 
-              {/* AlignJustify Menu - moved inside flex container */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="group text-[#c4626d] border border-[#f6cfd2] shadow-sm hover:shadow-md hover:bg-[#ffeef1] focus:ring-2 focus:ring-[#f7bfc6] transition-transform duration-200 ease-in-out will-change-transform hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <AlignJustify className="h-5 w-5 text-[#b14c5c] group-hover:text-[#e35e71]" />
-                  </Button>
-
-
-
-                  </DropdownMenuTrigger>
-
-                <DropdownMenuContent
-                  align="end"
-                  className="w-64 sm:w-72 border-[#f5c7cd] bg-gradient-to-br from-[#fff4f5]/95 via-[#ffe9ec]/95 to-[#fff0e6]/95 backdrop-blur-sm"
+              <DropdownMenuItem
+                onClick={() => setShowLogoutConfirm(true)}
+                disabled={logoutMutation.isPending}
+                className="cursor-pointer text-[#b64848] hover:bg-red-500 focus:bg-red-500 focus:text-white transition-colors text-red-600 px-4 py-3 text-base"
+              >
+                <LogOut className="h-8 w-8 text-[#d75f5f]" />
+                <motion.span
+                  animate={{
+                    scale: logoutMutation.isPending ? [1, 1.1, 1] : 1,
+                  }}
+                  transition={{
+                    duration: 0.5,
+                    repeat: logoutMutation.isPending ? Infinity : 0,
+                  }}
                 >
-                  <DropdownMenuLabel className="text-[#b35a68] text-base font-semibold px-4 py-2">
-                    メニュー
-                  </DropdownMenuLabel>
-
-
-                  <DropdownMenuSeparator className="bg-[#fcdde3]" />
-
-                  <Link href="/admin">
-                    <DropdownMenuItem className="cursor-pointer text-[#a9546b] hover:bg-[#ffe7ed] focus:bg-[#ffe7ed] focus:text-[#bf3e55] px-4 py-3 text-base">
-                      <UserPlus className="h-12 w-12 text-[#d76680]" />
-                      招待管理
-                    </DropdownMenuItem>
-
-                  </Link>
-
-                  <Link href="/moderator">
-                    <DropdownMenuItem className="cursor-pointer text-[#a96452] hover:bg-[#ffebdb] focus:bg-[#ffebdb] focus:text-[#b85e47] px-4 py-3 text-base">
-                      <ShieldAlert className="h-8 w-8 text-[#d27a5a]" />
-                      モデレーター
-                    </DropdownMenuItem>
-                  </Link>
-
-                  <Link href="/files">
-                    <DropdownMenuItem className="cursor-pointer text-[#6f5eaa] hover:bg-[#f0e9ff] focus:bg-[#f0e9ff] focus:text-[#5c4d98] px-4 py-3 text-base">
-                      <FileText className="h-8 w-8 text-[#937ccf]" />
-                      ファイル履歴
-                    </DropdownMenuItem>
-                  </Link>
-
-                  <DropdownMenuSeparator className="bg-[#fcdde3]" />
-
-                  <DropdownMenuItem
-                    onClick={() => setShowLogoutConfirm(true)}
-                    disabled={logoutMutation.isPending}
-                    className="cursor-pointer text-[#b64848] hover:bg-red-500 focus:bg-red-500 focus:text-white transition-colors text-red-600 px-4 py-3 text-base"
-                  >
-                    <LogOut className="h-8 w-8 text-[#d75f5f]" />
-                    <motion.span
-                      animate={{ scale: logoutMutation.isPending ? [1, 1.1, 1] : 1 }}
-                      transition={{ duration: 0.5, repeat: logoutMutation.isPending ? Infinity : 0 }}
-                    >
-                      ログアウト
-                    </motion.span>
-                  </DropdownMenuItem>
-
-                </DropdownMenuContent>
-
-
+                  ログアウト
+                </motion.span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
           </DropdownMenu>
         </div>
-          </div> 
+      </div>
     </header>
   );
 
@@ -194,40 +204,105 @@ export default function HomePage() {
     </AlertDialog>
   );
 
-
   return (
     <>
       {renderHeader()}
       {renderLogoutDialog()}
 
-      {/* Main Content with Improved Visuals */}
-              <main className="flex-1 container mx-auto px-4 py-8 bg-gradient-to-br from-[#fff1f2] via-[#ffeae5] to-[#fff4e6]">
+      <main className="flex-1 container mx-auto px-4 py-6 sm:py-10 bg-gradient-to-br from-[#fff1f2] via-[#ffeae5] to-[#fff4e6]">
+        <div className="relative">
+          <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 w-32 h-12 bg-[#fddde6] rounded-full blur-2xl opacity-30" />
 
+          <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden max-w-3xl mx-auto border border-[#f5cfd4]">
+            {/* Responsive Header Row */}
+            <div className="px-4 py-4 sm:px-6 bg-[#ffe9ec]/90 border-b border-[#f5cfd4] overflow-x-auto">
+              <div className="flex flex-nowrap items-center gap-3 sm:gap-6 min-w-max">
+                {/* Title */}
+                <h2 className="text-base sm:text-lg font-semibold text-[#b35a68] flex items-center gap-2 whitespace-nowrap shrink-0">
+                  <img
+                    src="/images/sakura-dp.png"
+                    alt="Icon"
+                    className="w-5 h-5"
+                  />
+                  データ入力パネル
+                </h2>
 
-            <div className="relative">
-              {/* Decorative Elements */}
-              {/* Floating Sakura Glow */}
-              <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 w-32 h-12 bg-[#fddde6] rounded-full blur-2xl opacity-30"></div>
-
-              {/* Chat Interface Container */}
-              <div className="bg-gradient-to-br from-[#fff1f2] via-[#ffeae5] to-[#fff4e6] rounded-2xl shadow-xl overflow-hidden max-w-3xl mx-auto border border-[#f5cfd4]">
-                <div className="px-4 py-3 bg-[#ffe9ec]/80 border-b border-[#f5cfd4] flex justify-between items-center">
-                  <h2 className="text-[#b35a68] font-semibold flex items-center gap-2">
-                    <img src="/images/sakura-dp.png" alt="Icon" className="w-5 h-5" />
-                    桜AIデータ入力パネル
-                  </h2>
+                <div className="relative shrink-0">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="メッセージ検索"
+                    value={messageSearch}
+                    onChange={(e) => setMessageSearch(e.target.value)}
+                    className="w-[200px] pl-9 bg-white border border-[#f5cfd4] shadow-sm rounded-md text-sm py-2 px-3"
+                  />
                 </div>
 
-                <div className={isMobile ? "p-3" : "p-5"}>
-                  <ChatInterface />
+                {/* Filter Dropdown */}
+                <div className="relative shrink-0">
+                  <Database className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Select
+                    value={dbFilter}
+                    onValueChange={(val) => setDbFilter(val as typeof dbFilter)}
+                  >
+                    <SelectTrigger className="w-[150px] pl-9 bg-white border border-[#f5cfd4] shadow-sm rounded-md text-sm">
+                      <SelectValue placeholder="データベース" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="files">うごき統計</SelectItem>
+                      <SelectItem value="ktdb">来た来ぬ統計</SelectItem>
+                      <SelectItem value="ibt">インバウンド統計</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sort Dropdown */}
+                <div className="relative shrink-0">
+                  <SortAsc className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Select
+                    value={sortBy}
+                    onValueChange={(value) =>
+                      setSortBy(value as "latest" | "oldest")
+                    }
+                  >
+                    <SelectTrigger className="w-[130px] pl-9 bg-white border border-[#f5cfd4] shadow-sm rounded-md text-sm">
+                      <SelectValue placeholder="並び替え" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="latest">最新順</SelectItem>
+                      <SelectItem value="oldest">古い順</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="relative shrink-0">
+                  <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="ユーザー名"
+                    value={usernameFilter}
+                    onChange={(e) => setUsernameFilter(e.target.value)}
+                    className="w-[180px] pl-9 bg-white border border-[#f5cfd4] shadow-sm rounded-md text-sm py-2 px-3"
+                  />
                 </div>
               </div>
+            </div>
 
-
+            {/* Chat Interface */}
+            <div className={isMobile ? "p-3" : "p-6"}>
+              <ChatInterface
+                sortBy={sortBy}
+                dbFilter={dbFilter}
+                usernameFilter={usernameFilter}
+                messageSearch={messageSearch}
+              />
+            </div>
+          </div>
         </div>
       </main>
 
-      <footer className="border-t border-[#f5cfd4] py-2 bg-[#fff4f5]/60 backdrop-blur-sm">
+      <footer className="border-t border-[#f5cfd4] py-3 bg-[#fff4f5]/60 backdrop-blur-sm">
         <div className="container mx-auto px-4 text-center">
           <motion.p
             className="text-xs text-[#c55a6a]"
@@ -238,7 +313,6 @@ export default function HomePage() {
           </motion.p>
         </div>
       </footer>
-
     </>
   );
 }
