@@ -23,7 +23,7 @@ import {
   RefreshCw,
   MessageSquare,
   ThumbsUp,
-  ThumbsDown, ArrowUpDown
+  ThumbsDown, ArrowUpDown, Info, Sparkles, SquareTerminal
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,8 @@ import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import ReactMarkdown from "react-markdown";
+import { AnimatePresence, motion } from "framer-motion";
 
 // フィードバック interface matching our schema
 interface フィードバック {
@@ -185,6 +187,40 @@ export default function フィードバックPage() {
       duration: 3000,
     });
   };
+
+  const [summary, setSummary] = useState("");
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+  const handleGenerateSummary = async () => {
+    if (!feedbackEntries || feedbackEntries.length === 0) return;
+
+    const comments = feedbackEntries
+      .filter((f) => f.comment)
+      .map((f) => f.comment!); // Non-null since filtered
+
+    setIsGeneratingSummary(true);
+    try {
+      const res = await fetch("/api/moderator/feedback/summary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ comments }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Unknown error");
+
+      setSummary(data.summary || "要約に失敗しました。");
+    } catch (error) {
+      setSummary("エラーが発生しました。");
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+
+
 
   // Get appropriate feedback card border color based on rating
   const getフィードバックCardStyle = (rating: number) => {
@@ -622,6 +658,77 @@ export default function フィードバックPage() {
               )}
             </CardContent>
           </Card>
+
+                <Card className="mt-8 p-6 border border-muted-foreground/10 shadow-md bg-white/80 backdrop-blur-md rounded-2xl transition-shadow duration-300 hover:shadow-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <SquareTerminal className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-semibold tracking-tight whitespace-nowrap">
+                        AIによる要約
+                      </h3>
+                    </div>
+
+                    <Button
+                      onClick={handleGenerateSummary}
+                      disabled={isGeneratingSummary}
+                      aria-busy={isGeneratingSummary}
+                      title="AIでフィードバックの要約を生成"
+                      className="relative overflow-hidden rounded-full px-6 py-2 font-medium text-transparent bg-white/80 backdrop-blur-md border-2 border-transparent transition-all duration-300 hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
+                      style={{
+                        backgroundImage:
+                          "linear-gradient(white, white), linear-gradient(to right, #00f0ff, #8b5cf6, #ec4899)",
+                        backgroundOrigin: "border-box",
+                        backgroundClip: "padding-box, border-box",
+                      }}
+                    >
+                      <div className="flex items-center gap-2 text-gradient bg-clip-text text-transparent bg-[linear-gradient(to_right,#00f0ff,#8b5cf6,#ec4899)]">
+                        <AnimatePresence mode="wait" initial={false}>
+                          {isGeneratingSummary ? (
+                            <motion.div
+                              key="spinner"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="sparkle"
+                              initial={{ opacity: 0, scale: 1.2 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <Sparkles className="h-5 w-5 text-cyan-400 drop-shadow-glow animate-sparkle" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <span className="sm:inline hidden">
+                          {isGeneratingSummary ? "生成中..." : "フィードバック要約を生成"}
+                        </span>
+                        <span className="sm:hidden inline">生成</span>
+                      </div>
+                    </Button>
+
+                  </div>
+
+              {summary ? (
+                <div className="bg-white border border-muted rounded-md p-4 text-base text-foreground leading-relaxed shadow-sm animate-fade-in-up">
+                  <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground">
+                    <ReactMarkdown>{summary}</ReactMarkdown>
+                  </div>
+                </div>
+              ) : (
+                    <div className="flex items-center text-sm text-muted-foreground italic animate-fade-in">
+                      <Info className="h-4 w-4 mr-2" />
+                      生成された要約はここに表示されます
+                    </div>
+                  )}
+                </Card>
+
         </TabsContent>
       </Tabs>
     </div>

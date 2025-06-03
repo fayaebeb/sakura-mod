@@ -460,6 +460,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate AI Summary of Feedback (OpenAI API)
+  app.post("/api/moderator/feedback/summary", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const { comments } = req.body;
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+      return res.status(400).json({ error: "No comments provided" });
+    }
+
+    const inputText = comments.map((c: string) => `- ${c}`).join("\n");
+
+    try {
+      const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "summarize user feedback into concise insights in Japanese.",
+            },
+            {
+              role: "user",
+              content: `次のユーザーフィードバックコメントを要約してください:\n${inputText}`,
+            },
+          ],
+          temperature: 1.0,
+        }),
+      });
+
+      const data = await openaiRes.json();
+
+      if (!data.choices || !data.choices[0]?.message?.content) {
+        throw new Error("Invalid OpenAI response");
+      }
+
+      res.json({ summary: data.choices[0].message.content });
+    } catch (err) {
+      console.error("Error generating summary:", err);
+      res.status(500).json({ error: "Failed to generate summary" });
+    }
+  });
+
+
   const httpServer = createServer(app);
   return httpServer;
 }
