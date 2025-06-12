@@ -219,3 +219,15 @@ export function setupAuth(app: Express) {
     }
   });
 }
+
+
+import { Request, Response, NextFunction } from "express";
+
+export function authMiddleware(handler: (req: Request, res: Response, user: Express.User) => any) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    return handler(req, res, req.user);
+  };
+}
