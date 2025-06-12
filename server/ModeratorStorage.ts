@@ -1,12 +1,20 @@
-import { eq } from "drizzle-orm";
+//server/ModeratorStorage.ts
+
+import { eq, desc } from "drizzle-orm";
 import { moderatorDb } from "./moderatorDb";
-import { messages, feedback, type Message, type Feedback } from "@shared/moderatorSchema";
+import {
+  messages,
+  feedback,
+  inviteTokens,
+  type Message,
+  type Feedback,
+  type InviteToken,
+} from "@shared/moderatorSchema";
+import { randomBytes } from "crypto";
 
 export class ModeratorStorage {
-  /**
-   * Retrieves all unique session IDs from the messages table.
-   * This is used to populate the moderator dashboard session list.
-   */
+  // ─── Session / Messages ────────────────────────────
+
   async getAllSessionIds(): Promise<string[]> {
     const results = await moderatorDb
       .select({ sessionId: messages.sessionId })
@@ -15,16 +23,9 @@ export class ModeratorStorage {
       .orderBy(messages.sessionId);
 
     return results
-    .map(row => row.sessionId)
-    .filter((id): id is string => id !== null);
+      .map((row) => row.sessionId)
+      .filter((id): id is string => id !== null);
   }
-
-  /**
-   * Retrieves all messages for a specific session ID, ordered by timestamp.
-   * This enables moderators to view the full chronological history of a session.
-   * 
-   * @param sessionId - The session ID for which to fetch messages.
-   */
 
   async getAllMessages(): Promise<Message[]> {
     return await moderatorDb
@@ -32,7 +33,7 @@ export class ModeratorStorage {
       .from(messages)
       .orderBy(messages.timestamp);
   }
-  
+
   async getMessagesBySessionId(sessionId: string): Promise<Message[]> {
     return await moderatorDb
       .select()
@@ -41,10 +42,8 @@ export class ModeratorStorage {
       .orderBy(messages.timestamp);
   }
 
-  /**
-   * Retrieves all feedback entries, ordered by creation date.
-   * This enables moderators to view all user feedback.
-   */
+  // ─── Feedback ──────────────────────────────────────
+
   async getAllFeedback(): Promise<Feedback[]> {
     return await moderatorDb
       .select()
@@ -52,11 +51,6 @@ export class ModeratorStorage {
       .orderBy(feedback.createdAt);
   }
 
-  /**
-   * Retrieves feedback for a specific session ID.
-   * 
-   * @param sessionId - The session ID for which to fetch feedback.
-   */
   async getFeedbackBySessionId(sessionId: string): Promise<Feedback[]> {
     return await moderatorDb
       .select()
@@ -65,16 +59,34 @@ export class ModeratorStorage {
       .orderBy(feedback.createdAt);
   }
 
-  /**
-   * Retrieves feedback for a specific user ID.
-   * 
-   * @param userId - The user ID for which to fetch feedback.
-   */
   async getFeedbackByUserId(userId: number): Promise<Feedback[]> {
     return await moderatorDb
       .select()
       .from(feedback)
       .where(eq(feedback.userId, userId))
       .orderBy(feedback.createdAt);
+  }
+
+  // ─── Invite Tokens ─────────────────────────────────
+
+  async getUserAppInviteTokens(): Promise<InviteToken[]> {
+    return await moderatorDb
+      .select()
+      .from(inviteTokens)
+      .where(eq(inviteTokens.isValid, true))
+      .orderBy(desc(inviteTokens.createdAt));
+  }
+
+  async createUserAppInviteToken(createdById: number): Promise<InviteToken> {
+    const tokenString = randomBytes(32).toString("hex");
+    const [newToken] = await moderatorDb
+      .insert(inviteTokens)
+      .values({
+        token: tokenString,
+        createdById,
+        isValid: true,
+      })
+      .returning();
+    return newToken;
   }
 }

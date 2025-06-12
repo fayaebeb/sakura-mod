@@ -41,7 +41,7 @@ import {
   UserPlus,
   SortAsc,
   Database,
-  Search,
+  Search, ShieldPlus
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
@@ -132,8 +132,15 @@ export default function HomePage() {
 
               <Link href="/admin">
                 <DropdownMenuItem className="cursor-pointer text-[#a9546b] hover:bg-[#ffe7ed] focus:bg-[#ffe7ed] focus:text-[#bf3e55] px-4 py-3 text-base">
-                  <UserPlus className="h-12 w-12 text-[#d76680]" />
+                  <ShieldPlus className="h-12 w-12 text-[#d76680]" />
                   招待管理
+                </DropdownMenuItem>
+              </Link>
+
+              <Link href="/useradd">
+                <DropdownMenuItem className="cursor-pointer text-[#4d7fa9] hover:bg-[#e0f2ff] focus:bg-[#e0f2ff] focus:text-[#356d94] px-4 py-3 text-base">
+                  <UserPlus className="h-8 w-8 text-[#6baed6]" />
+                  ユーザー招待
                 </DropdownMenuItem>
               </Link>
 

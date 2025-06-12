@@ -11,6 +11,8 @@ import {
 import { insertMessageSchema } from "@shared/schema";
 import { DataAPIClient } from "@datastax/astra-db-ts";
 import { ModeratorStorage } from "./ModeratorStorage";
+import userAppInviteTokensRoute from "./api/user-app-invite-tokens";
+
 
 const moderatorStorage = new ModeratorStorage();
 
@@ -508,6 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.use("/api/user-app-invite-tokens", userAppInviteTokensRoute);
 
   const httpServer = createServer(app);
   return httpServer;

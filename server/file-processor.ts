@@ -605,26 +605,3 @@ async function testAstraDBConnection() {
 
 // Run the test when this module is loaded
 testAstraDBConnection();
-
-/**
- * Retrieve the most relevant document chunks from AstraDB using vector search
- */
-/*export async function retrieveRelevantChunks(query: string, topK: number = 5): Promise<string[]> {
-  console.log(`🔍 Searching AstraDB for relevant chunks: "${query}"`);
-
-  try {
-    const results = await db.collection("files").find({
-      $vector: {
-        query: query,
-        path: "content",
-        k: topK,
-      },
-    }).toArray();
-
-    console.log(`✅ Found ${results.length} relevant chunks.`);
-    return results.map((doc) => doc.content);
-  } catch (error) {
-    console.error("❌ Error retrieving relevant chunks:", error);
-    return [];
-  }
-}*/
