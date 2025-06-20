@@ -5,7 +5,7 @@ import { pgTable, text, boolean, timestamp, serial, integer } from "drizzle-orm/
 export const inviteTokens = pgTable("invite_tokens", {
   id: serial("id").primaryKey(),
   token: text("token").notNull().unique(),
-  createdById: integer("created_by_id"), // foreign key in User DB, no need to resolve in Moderator App
+  createdById: integer("created_by_moderator_id"), // foreign key in User DB, no need to resolve in Moderator App
   usedById: integer("used_by_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   usedAt: timestamp("used_at"),
