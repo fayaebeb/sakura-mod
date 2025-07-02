@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -61,8 +63,7 @@ app.get("/health", (_req, res) => {
     serveStatic(app);
   }
 
-  // ✅ Fix: Use process.env.PORT (Default: 8080 for DigitalOcean)
-  const PORT = 8080;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
 
   server.listen(PORT, "0.0.0.0", () => {
     log(`🚀 Server is running on port ${PORT}`);

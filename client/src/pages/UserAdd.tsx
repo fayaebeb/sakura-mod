@@ -142,7 +142,7 @@ export default function UserAdd() {
                 トークンの読み込み中にエラーが発生しました。
               </div>
             ) : tokens && tokens.length > 0 ? (
-              <div className="space-y-4">
+              <div className="max-h-80 overflow-y-auto space-y-4 pr-2">
                 {tokens.map((token) => (
                   <div
                     key={token.id}

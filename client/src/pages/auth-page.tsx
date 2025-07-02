@@ -15,12 +15,14 @@ import { insertUserSchema, loginSchema } from "@shared/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Loader2, Mail, Lock, User, LogIn, Ticket } from "lucide-react";
+import { Loader2, Mail, Lock, User, LogIn, Ticket, Eye, EyeOff } from "lucide-react";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [, setLocation] = useLocation();
+  const [showPassword, setShowPassword] = useState(false);
+
 
   // Use the appropriate schema based on whether the user is logging in or registering
   const form = useForm({
@@ -31,7 +33,7 @@ export default function AuthPage() {
       inviteToken: "",
     },
   });
-  
+
   // Reset form and validation when switching between login and registration
   useEffect(() => {
     form.reset();
@@ -61,15 +63,15 @@ export default function AuthPage() {
         {/* Bot Logo in Mobile View */}
         <div className="flex flex-col items-center justify-center p-6 md:hidden">
           <img src="/images/full-sakura-mod.png" alt="桜AI ロゴ" className="w-33 mb-2 drop-shadow-md" />
-          
+
         </div>
 
         {/* Authentication Card */}
         <div className="flex flex-col items-center justify-center p-6 md:p-10">
-          <img 
-            src="/images/pclogo.png" 
-            alt="会社ロゴ" 
-            className="w-32 mb-8 drop-shadow-sm transition-all duration-300 hover:scale-105" 
+          <img
+            src="/images/pclogo.png"
+            alt="会社ロゴ"
+            className="w-32 mb-8 drop-shadow-sm transition-all duration-300 hover:scale-105"
           />
           <Card className="w-full max-w-md p-8 bg-white/95 backdrop-blur-sm shadow-lg rounded-xl border-0">
             <div className="text-center mb-6">
@@ -91,11 +93,11 @@ export default function AuthPage() {
                       <FormControl>
                         <div className="relative">
                           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input 
-                            type="email" 
-                            className="pl-10 py-6 h-12 bg-[#f8f5f0] border-[#e8d9c5] focus-visible:ring-[#16213e]" 
+                          <Input
+                            type="email"
+                            className="pl-10 py-6 h-12 bg-[#f8f5f0] border-[#e8d9c5] focus-visible:ring-[#16213e]"
                             placeholder="example@email.com"
-                            {...field} 
+                            {...field}
                           />
                         </div>
                       </FormControl>
@@ -112,19 +114,28 @@ export default function AuthPage() {
                       <FormControl>
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input 
-                            type="password" 
-                            className="pl-10 py-6 h-12 bg-[#f8f5f0] border-[#e8d9c5] focus-visible:ring-[#16213e]" 
-                            placeholder="••••••••" 
-                            {...field} 
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            className="pl-10 pr-10 py-6 h-12 bg-[#f8f5f0] border-[#e8d9c5] focus-visible:ring-[#16213e]"
+                            placeholder="••••••••"
+                            {...field}
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                            tabIndex={-1}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
                         </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                
+
+
                 {!isLogin && (
                   <FormField
                     control={form.control}
@@ -135,11 +146,11 @@ export default function AuthPage() {
                         <FormControl>
                           <div className="relative">
                             <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                              type="text" 
-                              className="pl-10 py-6 h-12 bg-[#f8f5f0] border-[#e8d9c5] focus-visible:ring-[#16213e]" 
-                              placeholder="招待トークンを入力してください" 
-                              {...field} 
+                            <Input
+                              type="text"
+                              className="pl-10 py-6 h-12 bg-[#f8f5f0] border-[#e8d9c5] focus-visible:ring-[#16213e]"
+                              placeholder="招待トークンを入力してください"
+                              {...field}
                             />
                           </div>
                         </FormControl>
@@ -148,7 +159,7 @@ export default function AuthPage() {
                     )}
                   />
                 )}
-                
+
                 <Button
                   type="submit"
                   className="w-full py-6 h-12 bg-[#16213e] hover:bg-[#253758] transition-colors duration-300 mt-2 shadow-md"
@@ -170,7 +181,7 @@ export default function AuthPage() {
                 </Button>
               </form>
             </Form>
-              <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex justify-center">
               <Button
                 variant="link"
                 onClick={() => setIsLogin(!isLogin)}
@@ -185,7 +196,7 @@ export default function AuthPage() {
         {/* Branding Section (Hidden in Mobile) */}
         <div className="hidden md:flex flex-col justify-center items-center p-10 bg-[#f8eee2] text-[#16213e]">
           <img src="/images/full-sakura-mod.png" alt="桜AI ロゴ" className="w-50 mb-8 drop-shadow-lg" />
-          
+
         </div>
       </div>
     );
