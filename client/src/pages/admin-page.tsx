@@ -176,7 +176,7 @@ export default function AdminPage() {
           </Card>
 
           {/* Admin — Upgrade All Users */}
-          <Card className="p-4 sm:p-6 bg-white/95 backdrop-blur-sm shadow-md rounded-xl border-0">
+          {/* <Card className="p-4 sm:p-6 bg-white/95 backdrop-blur-sm shadow-md rounded-xl border-0">
             <h2 className="text-xl sm:text-2xl font-semibold text-[#16213e] mb-4">
               管理者ツール
             </h2>
@@ -217,7 +217,7 @@ export default function AdminPage() {
               </Button>
 
             </div>
-          </Card>
+          </Card> */}
         </div>
       </div>
     </div>

@@ -133,7 +133,7 @@ export default function HomePage() {
               <Link href="/admin">
                 <DropdownMenuItem className="cursor-pointer text-[#a9546b] hover:bg-[#ffe7ed] focus:bg-[#ffe7ed] focus:text-[#bf3e55] px-4 py-3 text-base">
                   <ShieldPlus className="h-12 w-12 text-[#d76680]" />
-                  招待管理
+                  モデレータ招待
                 </DropdownMenuItem>
               </Link>
 
